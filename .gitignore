@@ -1,0 +1,15 @@
+# Môi trường và bí mật
+.env
+output/validation.token
+
+# Python cache
+__pycache__/
+*.pyc
+
+# IDE
+.vscode/
+.idea/
+
+# Lưu trữ cũ
+archive/
+
