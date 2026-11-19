@@ -21,6 +21,7 @@ from app.db.types import UTCDateTime, UUIDBinary16
 class PlanningPeriod(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "planning_periods"
     __table_args__ = (
+        UniqueConstraint("user_id", "id", name="uq_planning_periods_user_id"),
         UniqueConstraint(
             "user_id",
             "period_type",

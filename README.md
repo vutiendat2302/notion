@@ -59,7 +59,7 @@ notion/
 
 ```bash
 cp .env.example .env
-# Chỉnh sửa mật khẩu / secrets trong .env nếu triển khai ngoài localhost
+# Chỉnh sửa mật khẩu / secrets trong .env trước khi khởi chạy.
 make config
 ```
 
@@ -69,7 +69,8 @@ make config
 |---|---|
 | `make help` | Hiển thị toàn bộ danh sách lệnh hỗ trợ |
 | `make config` | Kiểm tra cú pháp Docker Compose (base, dev, profile `full`) |
-| `make db-up` | Khởi chạy container **MySQL 8.4** (port DataGrip: `127.0.0.1:3307`) |
+| `make db-up` | Kiểm tra container **MySQL 8.4** đang có (DataGrip: `127.0.0.1:3306`) |
+| `make migrate` | Áp dụng Alembic qua tài khoản migration riêng vào `productivity_db` |
 | `make db-check` | Kiểm tra version, `utf8mb4`, collation và timezone `+00:00` |
 | `make db-shell` | Mở MySQL CLI bằng tài khoản ứng dụng |
 | `make db-backup` | Xuất logical dump ra `backups/` (`--single-transaction`) |
