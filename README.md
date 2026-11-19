@@ -1,91 +1,84 @@
-# Notion Task Cleaner & Migration Toolkit (Professional Architecture)
+# Personal Productivity & Time Management App
 
-Hệ thống quản lý, đồng bộ và dọn dẹp database Notion chuyên nghiệp tuân thủ nghiêm ngặt nguyên tắc **Fail-Closed**:
-- **Bảo toàn 100% lịch sử**: Tuyệt đối không xóa bất kỳ task `Done` nào (602 task Done).
-- **So khớp toán học chuẩn xác**: Đối chiếu trực tiếp giữa `input/exported.csv` và `input/revised.csv` thông qua khóa duy nhất `(Task, Time)`.
-- **An toàn 2 pha**: Bắt buộc kiểm định an toàn (`validate`) sinh Token trước khi thực thi (`apply`).
-- **Audit & Rollback**: Toàn bộ thao tác được ghi log chi tiết vào `output/audit_log.csv` và hỗ trợ khôi phục tức thì với `rollback`.
+Hệ thống quản lý kế hoạch và năng suất cá nhân self-hosted trên Ubuntu: **Year → Quarter → Month → Week → Day**, Goals, Projects, Tasks, Occurrences, Recurrence, Time Tracking, Reminders, Analytics, Files/OCR và AI Assistant.
 
 ---
 
-## 📁 Cấu trúc dự án
+## 1. Kiến trúc tổng thể
+
+```text
+Web Next.js 16 (:3000) / iOS React Native (sau này)
+                │ HTTPS / REST (/api/v1)
+                ▼
+     Backend FastAPI :8000 (Python 3.14, Hybrid Architecture)
+         ├──► MySQL 8.4 LTS :3306 (`productivity_db`)
+         ├──► MinIO :9000 (Object storage)
+         │
+         │ Private Authenticated HTTP (/internal/v1)
+         ▼
+     AI Service FastAPI :8001 (Python 3.14, Hybrid, Pydantic AI)
+         ├──► Ollama :11434 (Local LLM & Embeddings)
+         ├──► Qdrant :6333 (Vector Index)
+         ├──► MySQL 8.4 :3306 (`ai_metadata_db`)
+         ├──► OCR Service :8866 (Python 3.12, PaddleOCR 3.x / PyMuPDF)
+         └──► Backend Internal Tool APIs (`/internal/v1/ai-tools/*`)
+```
+
+### Quy chuẩn & Tài liệu cốt lõi
+- **Quy chuẩn AI Coding & Kiến trúc:** [AGENTS.md](file:///home/datbritget/Documents/notion/AGENTS.md)
+- **Kế hoạch triển khai tổng thể & từng giai đoạn (BE, FE, DB, AI, OCR):** [docs/IMPLEMENTATION_PLAN.md](file:///home/datbritget/Documents/notion/docs/IMPLEMENTATION_PLAN.md)
+- **Thiết kế Database chi tiết từng giai đoạn (MySQL 8.4 — 41 bảng qua 4 giai đoạn):** [docs/database/DATABASE_DESIGN_BY_PHASE.md](file:///home/datbritget/Documents/notion/docs/database/DATABASE_DESIGN_BY_PHASE.md)
+- **Đặc tả nghiệp vụ:** [docs/personal_productivity_functional_spec_v2_notion.md](file:///home/datbritget/Documents/notion/docs/personal_productivity_functional_spec_v2_notion.md)
+- **Đặc tả Frontend (Intelligent Minimalism × Soft Blue):** [docs/personal_productivity_frontend_spec_notion.md](file:///home/datbritget/Documents/notion/docs/personal_productivity_frontend_spec_notion.md)
+- **Kế hoạch Database v2 (MySQL 8.4):** [docs/personal_productivity_database_v2_implementation_plan.md](file:///home/datbritget/Documents/notion/docs/personal_productivity_database_v2_implementation_plan.md)
+- **Đặc tả AI & Hạ tầng Self-host:** [docs/v2.md](file:///home/datbritget/Documents/notion/docs/v2.md)
+
+---
+
+## 2. Cấu trúc thư mục phẳng
 
 ```text
 notion/
-├── .env                  # Token bí mật (không commit git)
-├── .env.example          # Mẫu khai báo biến môi trường
-├── config.yaml           # Cấu hình Database ID, tên cột và ngưỡng an toàn
-├── input/
-│   ├── exported.csv      # CSV gốc xuất từ Notion (2.425 dòng)
-│   └── revised.csv       # CSV sau khi đã sửa/lọc (1.990 dòng)
-├── output/
-│   ├── change_plan.csv   # Kế hoạch chi tiết (KEEP / DELETE)
-│   ├── audit_log.csv     # Nhật ký thao tác từng bản ghi đã thực hiện
-│   ├── report.json       # Báo cáo đối soát JSON nghiệm thu cuối cùng
-│   ├── snapshot.csv      # Snapshot thực tế từ Notion API
-│   ├── backup.json       # Bản sao lưu thô bảo hiểm 100% dữ liệu gốc
-│   └── deleted_ids.json  # Danh sách page_id phục vụ hoàn tác (Rollback)
-├── src/
-│   ├── __init__.py
-│   ├── notion_client.py  # Module kết nối Notion API & chuẩn hóa dữ liệu
-│   ├── fetch.py          # Tải và sao lưu toàn bộ dữ liệu từ Notion
-│   ├── reconcile.py      # Đối chiếu Snapshot với file CSV đã sửa
-│   ├── validate.py       # Kiểm tra các điều kiện an toàn Fail-Closed
-│   ├── apply.py          # Thực thi thay đổi lên Notion (chuyển vào Trash)
-│   ├── verify.py         # Xác minh hậu cập nhật và xuất report.json
-│   └── rollback.py       # Khôi phục các trang từ Trash về lại database
-└── main.py               # CLI điều phối toàn bộ workflow
+├── frontend/                   # Next.js 16 + React 19 + TypeScript + Tailwind CSS 4 + shadcn/ui (Base UI)
+├── backend/                    # FastAPI Python 3.14 (Hybrid Modular Monolith)
+├── ai-service/                 # FastAPI Python 3.14 + Pydantic AI (Independent service)
+├── ocr-service/                # FastAPI Python 3.12 + PaddleOCR 3.x (Independent service)
+├── contracts/                  # OpenAPI specs & JSON schemas dùng chung
+├── infra/                      # Docker Compose, MySQL config/init, scripts, secrets
+├── docs/                       # Đặc tả và kế hoạch triển khai
+├── .env.example                # Biến môi trường mẫu toàn dự án
+├── Makefile                    # Điều phối Docker, DB, Migrations, Lint & Tests
+└── README.md
 ```
 
 ---
 
-## 🚀 Hướng dẫn sử dụng CLI qua `main.py`
+## 3. Khởi chạy & Vận hành qua Docker + Makefile
 
-### 1. Chuẩn bị môi trường & Cấu hình
-Điền Token vào file `.env`:
-```env
-NOTION_TOKEN=ntn_your_secret_token_here
-```
-Cấu hình thuộc tính trong `config.yaml` (nếu cần đổi database hoặc tên cột).
+### Chuẩn bị biến môi trường
 
-### 2. Chạy quy trình từng bước
-
-#### Bước 1: Tải dữ liệu từ Notion
 ```bash
-python3 main.py fetch
+cp .env.example .env
+# Chỉnh sửa mật khẩu / secrets trong .env nếu triển khai ngoài localhost
+make config
 ```
-* Tải toàn bộ pages từ Notion, lưu `output/backup_raw_pages.json` và `output/database_snapshot.csv`.
 
-#### Bước 2: Đối chiếu với file CSV đã sửa
-```bash
-python3 main.py reconcile
-```
-* So khớp Snapshot với `input/revised.csv` để lập kế hoạch `output/change_plan.csv`.
+### Các lệnh `Makefile` thường dùng
 
-#### Bước 3: Kiểm định an toàn (Fail-Closed)
-```bash
-python3 main.py validate
-```
-* Kiểm tra 0 task `Done` bị xóa, số lượng đúng kỳ vọng và cấp khóa xác thực an toàn `output/validation.token`.
-
-#### Bước 4: Thực thi xóa trên Notion
-```bash
-python3 main.py apply
-```
-* Gõ `XAC_NHAN_XOA` để bắt đầu gửi lệnh tới Notion API.
-* Ghi lại nhật ký vào `output/audit_log.csv`.
-
-#### Bước 5: Xác minh hậu cập nhật
-```bash
-python3 main.py verify
-```
-* Đối soát trực tiếp Database trên Notion với `input/revised.csv` và lưu kết quả vào `output/report.json`.
-
----
-
-### 🔄 Khôi phục khẩn cấp (Rollback)
-Nếu cần hoàn tác lại các trang đã xóa:
-```bash
-python3 main.py rollback
-```
-Script sẽ đọc `output/deleted_ids.json` và khôi phục 100% các trang từ Trash về lại database ban đầu.
+| Lệnh | Mục đích |
+|---|---|
+| `make help` | Hiển thị toàn bộ danh sách lệnh hỗ trợ |
+| `make config` | Kiểm tra cú pháp Docker Compose (base, dev, profile `full`) |
+| `make db-up` | Khởi chạy container **MySQL 8.4** (port DataGrip: `127.0.0.1:3307`) |
+| `make db-check` | Kiểm tra version, `utf8mb4`, collation và timezone `+00:00` |
+| `make db-shell` | Mở MySQL CLI bằng tài khoản ứng dụng |
+| `make db-backup` | Xuất logical dump ra `backups/` (`--single-transaction`) |
+| `make dev` | Khởi chạy Core Stack (`mysql` + `backend` + `frontend`) ở chế độ hot-reload |
+| `make up` | Khởi chạy Core Stack ở chế độ production runtime |
+| `make up-storage` | Bật thêm MinIO (`--profile storage`) |
+| `make up-ai` | Bật thêm MinIO + Qdrant + Ollama + OCR + AI Service (`--profile ai`) |
+| `make up-all` | Khởi chạy toàn bộ services (`--profile full`) |
+| `make down` | Dừng và gỡ containers (giữ nguyên volumes dữ liệu) |
+| `make logs SVC=backend` | Xem logs của container chỉ định |
+| `make migrate` | Chạy `alembic upgrade head` cho Backend |
+| `make check` | Chạy toàn bộ `ruff`, `pyright`, `pytest` (BE) và `lint`, `typecheck`, `test` (FE) |

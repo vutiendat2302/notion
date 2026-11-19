@@ -1,0 +1,135 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f7f9fc;
+  --foreground: #27354b;
+  --card: #ffffff;
+  --card-foreground: #27354b;
+  --popover: #ffffff;
+  --popover-foreground: #27354b;
+  --primary: #5378ac;
+  --primary-hover: #456a9d;
+  --primary-foreground: #ffffff;
+  --soft-blue-decorative: #5d83bb;
+  --secondary: #f1f5fa;
+  --secondary-foreground: #27354b;
+  --muted: #f1f5fa;
+  --muted-foreground: #65758b;
+  --accent: #e8eff9;
+  --accent-foreground: #36547e;
+  --destructive: #b4535f;
+  --border: #e6ebf2;
+  --input: #e6ebf2;
+  --ring: #5378ac;
+  --radius: 0.625rem;
+
+  --category-lavender: #a99adb;
+  --category-lavender-soft: #f1edfa;
+  --category-lavender-text: #66558a;
+
+  --category-sage: #8cb9a5;
+  --category-sage-soft: #edf6f0;
+  --category-sage-text: #3e7061;
+
+  --category-peach: #f0b28d;
+  --category-peach-soft: #fff3ea;
+  --category-peach-text: #9a562e;
+
+  --category-rose: #e6a0b0;
+  --category-rose-soft: #fceff3;
+  --category-rose-text: #93445f;
+
+  --category-butter: #e6c879;
+  --category-butter-soft: #fbf5e2;
+  --category-butter-text: #846a20;
+
+  --category-sky: #8dbddb;
+  --category-sky-soft: #edf6fc;
+  --category-sky-text: #3f7196;
+}
+
+.dark {
+  --background: #111925;
+  --foreground: #ecf2fa;
+  --card: #182332;
+  --card-foreground: #ecf2fa;
+  --popover: #182332;
+  --popover-foreground: #ecf2fa;
+  --primary: #9bbce6;
+  --primary-hover: #b2ccf0;
+  --primary-foreground: #111925;
+  --soft-blue-decorative: #7aa3d6;
+  --secondary: #202d3e;
+  --secondary-foreground: #ecf2fa;
+  --muted: #202d3e;
+  --muted-foreground: #afbcd0;
+  --accent: #263b54;
+  --accent-foreground: #d9e8fb;
+  --destructive: #e1919b;
+  --border: #2d3a4d;
+  --input: #2d3a4d;
+  --ring: #9bbce6;
+
+  --category-lavender-soft: #26213d;
+  --category-lavender-text: #cdc2f5;
+
+  --category-sage-soft: #1b2f29;
+  --category-sage-text: #aad4c2;
+
+  --category-peach-soft: #35241b;
+  --category-peach-text: #f5c6aa;
+
+  --category-rose-soft: #361e26;
+  --category-rose-text: #f2bcc8;
+
+  --category-butter-soft: #332c19;
+  --category-butter-text: #eed796;
+
+  --category-sky-soft: #1b2d3b;
+  --category-sky-text: #add5ed;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-geist-sans), Inter, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+html,
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,130 +1,99 @@
 # ==============================================================================
-# 1. BẢO MẬT & BIẾN MÔI TRƯỜNG (Security & Environment Variables)
+# 1. ENVIRONMENT & SECRETS
 # ==============================================================================
 .env
 .env.*
-.env.local
 !.env.example
+!*/.env.example
 
-# Tokens & Keys
+infra/secrets/*
+!infra/secrets/.gitkeep
+
 *.token
 *.key
 *.pem
+*.crt
 *.cert
-output/validation.token
 
 # ==============================================================================
-# 2. PYTHON RUNTIME & BYTECODE
+# 2. PYTHON RUNTIME, UV & TESTING (backend, ai-service, ocr-service)
 # ==============================================================================
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 
-# Distribution / Build / Package
 build/
-develop-eggs/
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
 *.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+.eggs/
+.Python
 
-# Virtual Environments
-venv/
 .venv/
+venv/
 env/
 ENV/
-env.bak/
-venv.bak/
 
-# Testing, Coverage & Linters
 .pytest_cache/
+.ruff_cache/
+.pyright/
+.mypy_cache/
 .coverage
 .coverage.*
 htmlcov/
-.tox/
-.nox/
-.mypy_cache/
-.ruff_cache/
-.pyre/
-.pytype/
 
 # ==============================================================================
-# 3. IDE & CÔNG CỤ LẬP TRÌNH (Editors & IDEs)
+# 3. NODE.JS, PNPM & NEXT.JS (frontend, mobile)
 # ==============================================================================
-# Visual Studio Code
+node_modules/
+.pnp
+.pnp.js
+
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+
+playwright-report/
+test-results/
+blob-report/
+
+# ==============================================================================
+# 4. DOCKER, DATA, BACKUPS & LOGS
+# ==============================================================================
+backups/
+data/
+logs/
+*.log
+*.log.*
+*.sql
+*.sql.gz
+!infra/mysql/init/*.sql
+
+tmp/
+scratch/
+archive/
+.cache/
+
+# ==============================================================================
+# 5. IDE & OS ARTIFACTS
+# ==============================================================================
 .vscode/*
 !.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
 !.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
 *.code-workspace
 
-# JetBrains (PyCharm, IntelliJ, etc.)
 .idea/
-
-# Sublime Text & Vim / Emacs
-*.sublime-workspace
-*.sublime-project
 *.swp
 *.swo
 *~
 *.bak
 
-# ==============================================================================
-# 4. HỆ ĐIỀU HÀNH (Operating System Artifacts)
-# ==============================================================================
-# macOS
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-
-# Windows
 Thumbs.db
-Thumbs.db:encryptable
-ehthumbs.db
-ehthumbs_vista.db
-[Dd]esktop.ini
-$RECYCLE.BIN/
-
-# Linux
+Desktop.ini
 .directory
 .trash/
-
-# ==============================================================================
-# 5. DỰ ÁN NOTION: LOGS, ARCHIVE & HEAVY BACKUP (Project Specific)
-# ==============================================================================
-# Logs & nhật ký chạy runtime
-*.log
-logs/
-*.log.*
-
-# Thư mục lưu trữ cũ & scratch
-archive/
-scratch/
-tmp/
-.cache/
-
-# File backup thô kích thước lớn từ Notion API (~6MB dữ liệu JSON gốc)
-output/backup_raw_pages.json
-
-# Ghi chú: Nếu repo là PUBLIC (công khai), hãy uncomment các dòng dưới đây
-# để tránh lộ dữ liệu cá nhân (tên task, lịch trình, ghi chú) lên GitHub:
-# input/*.csv
-# !input/.gitkeep
-# output/*.csv
-# output/*.json
-# !output/.gitkeep
