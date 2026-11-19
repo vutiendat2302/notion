@@ -1,0 +1,51 @@
+[project]
+name = "personal-productivity-backend"
+version = "0.1.0"
+description = "Personal Productivity & Time Management App — FastAPI Hybrid Backend"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "alembic>=1.14",
+    "asyncmy>=0.2.10",
+    "email-validator>=2.2",
+    "fastapi>=0.115",
+    "pwdlib[argon2]>=0.2.1",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    "pyjwt>=2.10",
+    "python-dateutil>=2.9",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "uvicorn[standard]>=0.34",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28",
+    "pyright>=1.1.390",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.25",
+    "ruff>=0.9",
+]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+ignore = ["B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"alembic/versions/*.py" = ["E501"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-ra"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.pyright]
+pythonVersion = "3.14"
+typeCheckingMode = "standard"
+include = ["app"]
+reportMissingTypeStubs = false

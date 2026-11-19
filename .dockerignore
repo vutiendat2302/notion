@@ -1,0 +1,56 @@
+# ==============================================================================
+# Global .dockerignore — Monorepo-wide Docker Build Context Exclusions
+# ==============================================================================
+
+# Git & Docs
+.git
+.gitignore
+.gitattributes
+docs/
+README.md
+AGENTS.md
+Makefile
+
+# Environment & Secrets (NEVER bake secrets into images)
+.env
+.env.*
+!.env.example
+infra/secrets/
+
+# Python Runtime, uv & Test Artifacts
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
+**/.venv/
+**/venv/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.pyright/
+**/.mypy_cache/
+**/.coverage
+**/htmlcov/
+**/tests/
+
+# Node.js, pnpm & Next.js Build Artifacts
+**/node_modules/
+**/.next/
+**/out/
+**/.turbo/
+**/*.tsbuildinfo
+**/coverage/
+**/playwright-report/
+**/test-results/
+
+# Local Data, Backups, Logs & IDE
+backups/
+data/
+logs/
+**/*.log
+tmp/
+scratch/
+archive/
+.cache/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
