@@ -23,6 +23,7 @@ from app.db.types import UTCDateTime, UUIDBinary16
 class Goal(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "goals"
     __table_args__ = (
+        UniqueConstraint("user_id", "id", name="uq_goals_user_id"),
         CheckConstraint(
             "goal_type IN ('QUANTITATIVE', 'COUNT_BASED', 'HABIT_BASED', "
             "'TASK_BASED', 'MILESTONE_BASED', 'QUALITATIVE')",

@@ -2,17 +2,21 @@ name: ${COMPOSE_PROJECT_NAME:-personal-productivity}
 
 services:
   mysql:
+    profiles: ["standalone-db"]
     image: ${MYSQL_IMAGE:?Set MYSQL_IMAGE in .env}
-    container_name: productivity-mysql
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-productivity_db}
       MYSQL_USER: ${MYSQL_USER:-productivity_app}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+      MYSQL_MIGRATION_USER: ${MYSQL_MIGRATION_USER:?Set MYSQL_MIGRATION_USER}
+      MYSQL_MIGRATION_PASSWORD: ${MYSQL_MIGRATION_PASSWORD:?Set MYSQL_MIGRATION_PASSWORD}
       AI_MYSQL_DATABASE: ${AI_MYSQL_DATABASE:-ai_metadata_db}
       AI_MYSQL_USER: ${AI_MYSQL_USER:-ai_metadata_app}
       AI_MYSQL_PASSWORD: ${AI_MYSQL_PASSWORD:?Set AI_MYSQL_PASSWORD in .env}
+      AI_MYSQL_MIGRATION_USER: ${AI_MYSQL_MIGRATION_USER:?Set AI_MYSQL_MIGRATION_USER}
+      AI_MYSQL_MIGRATION_PASSWORD: ${AI_MYSQL_MIGRATION_PASSWORD:?Set AI_MYSQL_MIGRATION_PASSWORD}
     ports:
       - "127.0.0.1:${MYSQL_HOST_PORT:-3307}:3306"
     volumes:
@@ -37,7 +41,6 @@ services:
       context: ../backend
       dockerfile: Dockerfile
       target: runtime
-    container_name: productivity-backend
     restart: unless-stopped
     environment:
       APP_ENV: ${APP_ENV:-development}
@@ -66,9 +69,6 @@ services:
       MINIO_BUCKET_EXPORTS: ${MINIO_BUCKET_EXPORTS:-personal-exports}
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
-    depends_on:
-      mysql:
-        condition: service_healthy
     healthcheck:
       test:
         [
@@ -81,6 +81,7 @@ services:
       start_period: 20s
     networks:
       - internal_net
+      - shared_mysql_net
 
   frontend:
     build:
@@ -89,7 +90,6 @@ services:
       target: runner
       args:
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000/api/v1}
-    container_name: productivity-frontend
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -103,9 +103,29 @@ services:
     networks:
       - internal_net
 
+  backend-migrate:
+    image: ${COMPOSE_PROJECT_NAME:-personal-productivity}-backend:latest
+    profiles: ["migration"]
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      DATABASE_MIGRATION_URL: ${DATABASE_MIGRATION_URL:?Set DATABASE_MIGRATION_URL}
+    command: ["alembic", "upgrade", "head"]
+    networks:
+      - shared_mysql_net
+
+  ai-db-migrate:
+    build:
+      context: ../ai-service/db
+      dockerfile: Dockerfile
+    profiles: ["migration"]
+    environment:
+      AI_METADATA_MIGRATION_URL: ${AI_METADATA_MIGRATION_URL:?Set AI_METADATA_MIGRATION_URL}
+      AI_METADATA_DATABASE_URL: ${AI_METADATA_DATABASE_URL:?Set AI_METADATA_DATABASE_URL}
+    networks:
+      - shared_mysql_net
+
   minio:
     image: ${MINIO_IMAGE:?Set MINIO_IMAGE in .env}
-    container_name: productivity-minio
     profiles: ["storage", "ai", "full"]
     restart: unless-stopped
     command: server /data --console-address ":9001"
@@ -128,7 +148,6 @@ services:
 
   qdrant:
     image: ${QDRANT_IMAGE:?Set QDRANT_IMAGE in .env}
-    container_name: productivity-qdrant
     profiles: ["ai", "full"]
     restart: unless-stopped
     ports:
@@ -142,7 +161,6 @@ services:
 
   ollama:
     image: ${OLLAMA_IMAGE:?Set OLLAMA_IMAGE in .env}
-    container_name: productivity-ollama
     profiles: ["ai", "full"]
     restart: unless-stopped
     ports:
@@ -157,7 +175,6 @@ services:
       context: ../ocr-service
       dockerfile: Dockerfile
       target: runtime
-    container_name: productivity-ocr
     profiles: ["ocr", "ai", "full"]
     restart: unless-stopped
     environment:
@@ -194,7 +211,6 @@ services:
       context: ../ai-service
       dockerfile: Dockerfile
       target: runtime
-    container_name: productivity-ai
     profiles: ["ai", "full"]
     restart: unless-stopped
     environment:
@@ -227,8 +243,6 @@ services:
     expose:
       - "8001"
     depends_on:
-      mysql:
-        condition: service_healthy
       backend:
         condition: service_started
     healthcheck:
@@ -243,10 +257,14 @@ services:
       start_period: 20s
     networks:
       - internal_net
+      - shared_mysql_net
 
 networks:
   internal_net:
     driver: bridge
+  shared_mysql_net:
+    external: true
+    name: ${MYSQL_DOCKER_NETWORK:?Set MYSQL_DOCKER_NETWORK}
 
 volumes:
   mysql_data:

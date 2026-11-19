@@ -1,7 +1,17 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, Date, ForeignKey, Index, Integer, String, Text, text
+from sqlalchemy import (
+    CheckConstraint,
+    Date,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -11,6 +21,7 @@ from app.db.types import UTCDateTime, UUIDBinary16
 class Project(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "projects"
     __table_args__ = (
+        UniqueConstraint("user_id", "id", name="uq_projects_user_id"),
         CheckConstraint(
             "status IN ('PLANNED', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'CANCELLED')",
             name="projects_status",

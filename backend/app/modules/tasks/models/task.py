@@ -4,7 +4,17 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, Integer, String, Text, text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -17,6 +27,7 @@ if TYPE_CHECKING:
 class Task(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "tasks"
     __table_args__ = (
+        UniqueConstraint("user_id", "id", name="uq_tasks_user_id"),
         CheckConstraint(
             "priority IN ('LOW', 'MEDIUM', 'HIGH', 'URGENT')",
             name="tasks_priority",

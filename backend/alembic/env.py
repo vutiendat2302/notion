@@ -1,4 +1,5 @@
 import asyncio
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import pool
@@ -19,7 +20,7 @@ target_metadata = Base.metadata
 
 
 def get_database_url() -> str:
-    return str(get_settings().build_sqlalchemy_url())
+    return os.getenv("DATABASE_MIGRATION_URL") or str(get_settings().build_sqlalchemy_url())
 
 
 def run_migrations_offline() -> None:
