@@ -32,6 +32,12 @@ class ProjectService:
             include_archived=include_archived,
         )
 
+    async def get_project(self, user_id: UUID, project_id: UUID) -> Project:
+        project = await self.repo.get_by_id_and_user(project_id, user_id)
+        if project is None:
+            raise NotFoundError("Project not found.", code="PROJECT_NOT_FOUND")
+        return project
+
     async def create_project(self, user_id: UUID, payload: ProjectCreateRequest) -> Project:
         if payload.category_id is not None:
             category = await self.category_repo.get_by_id_and_user(payload.category_id, user_id)

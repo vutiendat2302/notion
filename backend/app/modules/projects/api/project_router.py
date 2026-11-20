@@ -39,6 +39,14 @@ async def create_project(
     return ProjectResponse.model_validate(project)
 
 
+@router.get("/{project_id}", response_model=ProjectResponse)
+async def get_project(
+    project_id: UUID, current_user: CurrentUser, session: DBSession
+) -> ProjectResponse:
+    project = await ProjectService(session).get_project(current_user.id, project_id)
+    return ProjectResponse.model_validate(project)
+
+
 @router.patch("/{project_id}", response_model=ProjectResponse)
 async def patch_project(
     project_id: UUID,
@@ -48,3 +56,10 @@ async def patch_project(
 ) -> ProjectResponse:
     project = await ProjectService(session).patch_project(current_user.id, project_id, payload)
     return ProjectResponse.model_validate(project)
+
+
+@router.delete("/{project_id}", status_code=204)
+async def delete_project(project_id: UUID, current_user: CurrentUser, session: DBSession) -> None:
+    await ProjectService(session).patch_project(
+        current_user.id, project_id, ProjectPatchRequest(archived=True)
+    )

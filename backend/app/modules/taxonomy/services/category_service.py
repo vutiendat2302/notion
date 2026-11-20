@@ -22,6 +22,12 @@ class CategoryService:
     ) -> list[Category]:
         return await self.repo.list_by_user(user_id, include_archived=include_archived)
 
+    async def get_category(self, user_id: UUID, category_id: UUID) -> Category:
+        category = await self.repo.get_by_id_and_user(category_id, user_id)
+        if category is None:
+            raise NotFoundError("Category not found.", code="CATEGORY_NOT_FOUND")
+        return category
+
     async def create_category(self, user_id: UUID, payload: CategoryCreateRequest) -> Category:
         category = Category(
             user_id=user_id,

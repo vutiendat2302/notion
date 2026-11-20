@@ -35,6 +35,14 @@ async def create_category(
     return CategoryResponse.model_validate(category)
 
 
+@router.get("/{category_id}", response_model=CategoryResponse)
+async def get_category(
+    category_id: UUID, current_user: CurrentUser, session: DBSession
+) -> CategoryResponse:
+    category = await CategoryService(session).get_category(current_user.id, category_id)
+    return CategoryResponse.model_validate(category)
+
+
 @router.patch("/{category_id}", response_model=CategoryResponse)
 async def patch_category(
     category_id: UUID,
@@ -44,3 +52,10 @@ async def patch_category(
 ) -> CategoryResponse:
     category = await CategoryService(session).patch_category(current_user.id, category_id, payload)
     return CategoryResponse.model_validate(category)
+
+
+@router.delete("/{category_id}", status_code=204)
+async def delete_category(category_id: UUID, current_user: CurrentUser, session: DBSession) -> None:
+    await CategoryService(session).patch_category(
+        current_user.id, category_id, CategoryPatchRequest(archived=True)
+    )
