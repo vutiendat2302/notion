@@ -1,0 +1,51 @@
+# FE Phase 2 — Test report
+
+Date: 2026-11-20. Branch: `feature/fe-phase2-planning-calendar`.
+
+## Scope
+
+- Planning views Year / Quarter / Month / ISO Week / Day from real occurrence data.
+- Calendar month / week / day / list, timed and all-day events, Inbox drag, confirmation before schedule changes.
+- Task detail: occurrence status, task edit, schedule, checklist, subtasks, dependencies, recurrence and progress.
+- Tasks search, category/project filters, pagination; Today timezone and completed-today count.
+
+## Automated checks run
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| `corepack pnpm typecheck` | PASS | TypeScript completed with no errors. |
+| `corepack pnpm lint` | PASS | ESLint completed with no errors or warnings. |
+| `corepack pnpm test` | PASS | 8 tests in 2 files, including ISO week boundary, leap month and user timezone. |
+| `corepack pnpm build` | PASS | Next.js production build generated all routes. |
+| `git diff --check` | PASS | No whitespace errors. |
+
+## Runtime checks run
+
+| Scenario | Result | Notes |
+| --- | --- | --- |
+| Isolated Backend health on `127.0.0.1:18000` | PASS | `/health/live` and `/health/ready` returned 200; ready reported database OK. Port 8000 belongs to another project and was not changed. |
+| Unauthenticated `/users/me`, `/occurrences`, `/tasks` | PASS | All returned 401. CORS allowed only the temporary FE origin used for this check. |
+| Calendar unauthenticated view | PASS | Headless Chrome displayed sign-in prompt. |
+| Planning with temporary in-memory API responses | PASS | Headless Chrome displayed period navigation, counts, grouped occurrences and rollover control. |
+| Calendar with temporary in-memory API responses | PASS | Headless Chrome displayed month grid, all-day item, timed item and Inbox backlog. |
+| Task detail with temporary in-memory API responses | PASS | Browser opened task panel; status and editable fields rendered. |
+| Mobile Calendar at 390 px width with temporary data | PASS | Page remained within viewport; calendar grid scrolls horizontally. |
+
+The temporary API returned synthetic data and did not write to MySQL. Visual checks confirm rendering and loading/auth states; they do not prove authenticated write flows against the live database.
+
+## Manual acceptance scenarios for an owner account
+
+Use the Web UI and the Postman requests in `docs/postman/02_be_phase2_task_workflows_postman.md`. Test against a dedicated test account or a transactional test database.
+
+1. Create a one-off task in Inbox, find it with Tasks search and project/category filters, then schedule it in Calendar. Confirm only the selected occurrence moves.
+2. Drag a timed event to another time, resize it, confirm the proposed time and verify the task detail reflects the saved schedule. Check overlap warning and cancel behavior.
+3. Mark an occurrence done, reopen it, skip and cancel another occurrence. Verify Today and Planning counts refresh without changing the task definition.
+4. Add checklist items, tick one occurrence and compare another occurrence of the same recurring task. States must stay independent.
+5. Add a subtask and a dependency. Confirm a self-dependency or cycle is rejected with a visible backend error.
+6. Create a recurrence rule, preview dates, pause/resume, then edit only future occurrences. Verify completed history is preserved and the old selected occurrence panel closes after a rule change.
+7. Navigate ISO week `2026-W53` to `2027-W01`, leap February 2028, and switch user timezone. Verify displayed days and Today boundary.
+8. Open Planning/Calendar on a narrow mobile viewport; use keyboard navigation and reduced-motion mode. Confirm loading, empty, error and unauthorized states.
+
+## Current backend boundary
+
+`/planning/periods/{type}/{key}` still returns a skeleton without saved plans or plan items, and `/calendar/events` still returns an empty projection. FE Phase 2 therefore presents and edits BE Phase 2 occurrences directly. Saved plan items, period review and server-side calendar range queries require the corresponding backend phase.

@@ -1,7 +1,6 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -10,10 +9,13 @@ import {
   completeOccurrence,
   createTask,
   fetchCategories,
+  fetchOccurrenceCatalog,
   fetchOccurrences,
   fetchProjects,
   reopenOccurrence,
 } from "@/features/tasks/api";
+import { dateInTimeZone } from "@/features/planning/period";
+import { fetchCurrentUser } from "@/features/users/api";
 import { QuickAddTask } from "@/features/tasks/quick-add-task";
 import { TaskDetailPanel } from "@/features/tasks/task-detail-panel";
 import { TaskRow } from "@/features/tasks/task-row";
@@ -23,8 +25,11 @@ import type { Category, OccurrenceWithTask, Project } from "@/types/domain";
 export default function TodayPage() {
   const queryClient = useQueryClient();
   const [selectedItem, setSelectedItem] = useState<OccurrenceWithTask | null>(null);
-  const todayIso = useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
-  const todayHeading = useMemo(() => format(new Date(), "EEEE, dd MMM yyyy"), []);
+  const userQuery = useQuery({ queryKey: ["me"], queryFn: fetchCurrentUser, retry: false });
+  const catalogQuery = useQuery({ queryKey: ["occurrence-catalog"], queryFn: fetchOccurrenceCatalog });
+  const timezone = userQuery.data?.settings?.timezone ?? "Asia/Ho_Chi_Minh";
+  const todayIso = dateInTimeZone(new Date(), timezone);
+  const todayHeading = new Intl.DateTimeFormat("vi-VN", { timeZone: timezone, weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date());
 
   const occurrencesQuery = useQuery({
     queryKey: ["occurrences", "today"],
@@ -59,7 +64,10 @@ export default function TodayPage() {
     mutationFn: (title: string) =>
       createTask({ title, scheduled_date: todayIso, priority: "MEDIUM" }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["occurrences"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["occurrences"] }),
+        queryClient.invalidateQueries({ queryKey: ["occurrence-catalog"] }),
+      ]);
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : "Failed to create task");
@@ -74,7 +82,10 @@ export default function TodayPage() {
       return completeOccurrence(item.id);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["occurrences"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["occurrences"] }),
+        queryClient.invalidateQueries({ queryKey: ["occurrence-catalog"] }),
+      ]);
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : "Failed to update occurrence");
@@ -85,7 +96,9 @@ export default function TodayPage() {
   const topPriorities = items
     .filter((i) => i.task.priority === "URGENT" || i.task.priority === "HIGH")
     .slice(0, 3);
-  const doneCount = items.filter((i) => i.status === "DONE").length;
+  const completedToday = (catalogQuery.data?.items ?? []).filter((entry) =>
+    entry.status === "DONE" && entry.completed_at && dateInTimeZone(entry.completed_at, timezone) === todayIso
+  );
 
   const isUnauthorized =
     occurrencesQuery.error instanceof ApiClientError &&
@@ -181,10 +194,10 @@ export default function TodayPage() {
           <section className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-foreground">
-                Scheduled Today & Due
+                Đến hôm nay & quá hạn
               </h2>
               <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                {doneCount}/{items.length} done
+                {completedToday.length} hoàn thành hôm nay
               </span>
             </div>
 
@@ -216,6 +229,14 @@ export default function TodayPage() {
               </div>
             )}
           </section>
+          {completedToday.length > 0 && <section className="space-y-3">
+            <h2 className="text-sm font-semibold text-foreground">Đã hoàn thành hôm nay</h2>
+            <div className="space-y-2">{completedToday.map((entry) => <TaskRow key={entry.id} item={entry}
+              category={entry.task.category_id ? categoryMap.get(entry.task.category_id) : undefined}
+              project={entry.task.project_id ? projectMap.get(entry.task.project_id) : undefined}
+              onToggleComplete={(it) => toggleMutation.mutate(it)} onSelect={setSelectedItem} />)}</div>
+          </section>}
+          {catalogQuery.data?.truncated && <p className="text-xs text-muted-foreground">Danh sách đã hoàn thành có thể chưa đầy đủ do giới hạn tải 10.000 lần thực hiện.</p>}
         </>
       )}
 

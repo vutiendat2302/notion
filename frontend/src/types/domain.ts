@@ -142,3 +142,80 @@ export interface ApiErrorEnvelope {
   };
   request_id: string;
 }
+
+export interface RecurrenceRule {
+  id: string;
+  task_id: string;
+  frequency: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
+  interval_value: number;
+  weekdays_mask: number | null;
+  month_day: number | null;
+  monthly_overflow_policy: "SKIP" | "CLAMP_TO_LAST_DAY";
+  default_start_time: string | null;
+  default_duration_minutes: number | null;
+  starts_on: string;
+  ends_on: string | null;
+  max_count: number | null;
+  timezone: string;
+  is_paused: boolean;
+  rule_version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RecurrenceRuleInput {
+  frequency: RecurrenceRule["frequency"];
+  interval_value: number;
+  weekdays_mask?: number | null;
+  month_day?: number | null;
+  monthly_overflow_policy: RecurrenceRule["monthly_overflow_policy"];
+  default_start_time?: string | null;
+  default_duration_minutes?: number | null;
+  starts_on: string;
+  ends_on?: string | null;
+  max_count?: number | null;
+  timezone: string;
+}
+
+export interface ChecklistItem {
+  id: string;
+  task_id: string;
+  title: string;
+  sort_order: number;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChecklistState {
+  occurrence_id: string;
+  checklist_item_id: string;
+  is_checked: boolean;
+  checked_at: string | null;
+}
+
+export interface TaskDependency {
+  id: string;
+  user_id: string;
+  blocking_task_id: string;
+  blocked_task_id: string;
+  relation_type: "FINISH_TO_START";
+  created_at: string;
+}
+
+export interface TaskProgress {
+  task_id: string;
+  metric_type: "OCCURRENCE_COMPLETION";
+  unit: "percent";
+  timezone: string;
+  window_start: string | null;
+  window_end_exclusive: string | null;
+  as_of: string;
+  eligible_count: number;
+  completed_count: number;
+  skipped_count: number;
+  cancelled_count: number;
+  future_excluded_count: number;
+  completion_rate: number | null;
+  policy: string;
+}
