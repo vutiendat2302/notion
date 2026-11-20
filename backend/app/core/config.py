@@ -59,7 +59,10 @@ class Settings(BaseSettings):
                 raise ValueError("JWT_SECRET_KEY must be set to a strong secret in production.")
             if "CHANGE_ME" in self.s2s_signing_secret or len(self.s2s_signing_secret) < 32:
                 raise ValueError("S2S_SIGNING_SECRET must be configured in production.")
-            if "CHANGE_ME" in self.mysql_password:
+            if self.database_url:
+                if "CHANGE_ME" in self.database_url:
+                    raise ValueError("DATABASE_URL must be configured in production.")
+            elif "CHANGE_ME" in self.mysql_password:
                 raise ValueError("MYSQL_PASSWORD must be configured in production.")
         return self
 

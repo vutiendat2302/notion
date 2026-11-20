@@ -18,6 +18,9 @@ Date: 2026-11-20. Branch: `feature/fe-phase2-planning-calendar`.
 | `corepack pnpm test` | PASS | 8 tests in 2 files, including ISO week boundary, leap month and user timezone. |
 | `corepack pnpm build` | PASS | Next.js production build generated all routes. |
 | `git diff --check` | PASS | No whitespace errors. |
+| Backend `pytest` on dedicated MySQL | PASS | 14 tests; integration tests use an outer transaction and rollback. |
+| Backend Ruff and Pyright | PASS | Ruff check/format passed; Pyright reported 0 errors. |
+| Playwright authenticated browser E2E | PASS | 1 end-to-end flow against the real MySQL-backed API through a rollback-only HTTP test server. |
 
 ## Runtime checks run
 
@@ -30,8 +33,12 @@ Date: 2026-11-20. Branch: `feature/fe-phase2-planning-calendar`.
 | Calendar with temporary in-memory API responses | PASS | Headless Chrome displayed month grid, all-day item, timed item and Inbox backlog. |
 | Task detail with temporary in-memory API responses | PASS | Browser opened task panel; status and editable fields rendered. |
 | Mobile Calendar at 390 px width with temporary data | PASS | Page remained within viewport; calendar grid scrolls horizontally. |
+| Authenticated browser flow against MySQL | PASS | Bootstrap, task create, checklist add/tick, occurrence start/complete/reopen, schedule, Planning rollover confirmation and Calendar display. |
+| Test data cleanup | PASS | After the E2E server stopped, users, tasks, occurrences and checklist test tables contained zero test rows. |
+| Production Compose on isolated project | PASS | Backend and recurrence worker healthy; FE returned 200 on `/`, `/planning`, `/calendar`; unauthenticated API returned 401. Bound to loopback ports 18000 and 3100. |
+| Production same-origin authentication smoke | PASS | Owner login through FE `/api/v1`, authenticated `/users/me` 200 with expected account, logout revoked the session. |
 
-The temporary API returned synthetic data and did not write to MySQL. Visual checks confirm rendering and loading/auth states; they do not prove authenticated write flows against the live database.
+The earlier rendering checks used synthetic data. The later Playwright flow used real MySQL behind a transactional HTTP server and rolled back all writes when the server stopped. It covers the listed happy path; drag/resize, recurrence editing and cross-owner cases remain manual or backend-level checks.
 
 ## Manual acceptance scenarios for an owner account
 
