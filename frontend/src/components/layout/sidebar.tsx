@@ -11,6 +11,7 @@ const PRIMARY_NAV = [
   { href: "/today", label: "Today", short: "Td" },
   { href: "/tasks", label: "Tasks", short: "Tk" },
   { href: "/planning", label: "Planning", short: "Pl" },
+  { href: "/projects", label: "Projects", short: "Pr" },
   { href: "/calendar", label: "Calendar", short: "Ca" },
   { href: "/analytics", label: "Analytics", short: "An" },
 ];

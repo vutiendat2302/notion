@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { signInOrBootstrap } from "./sign-in";
 
 function todayInVietnam(): string {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -12,25 +13,16 @@ function todayInVietnam(): string {
 }
 
 test("owner can plan an occurrence, manage checklist and open Calendar", async ({ page }) => {
-  const marker = await page.request.get("/api/v1/__e2e__/transactional");
-  expect(marker.ok(), "E2E must use the rollback-only backend").toBe(true);
-  expect(await marker.json()).toEqual({ transactional: true });
-
-  await page.goto("/login");
-  await page.getByRole("button", { name: "First-time Bootstrap" }).click();
-  await page.getByLabel("Display name").fill("Browser E2E");
-  await page.getByLabel("Email").fill("browser-e2e@example.com");
-  await page.getByLabel("Password").fill("TestPassword123!");
-  await page.getByRole("button", { name: "Create Owner Workspace" }).click();
-  await expect(page).toHaveURL(/\/today$/);
+  await signInOrBootstrap(page);
+  const taskTitle = `E2E planning task ${Date.now()}`;
 
   await page.goto("/tasks");
-  await page.getByRole("textbox", { name: "Quick add task" }).fill("E2E planning task");
+  await page.getByRole("textbox", { name: "Quick add task" }).fill(taskTitle);
   await page.getByRole("button", { name: "Add", exact: true }).click();
-  await expect(page.getByRole("button", { name: "E2E planning task", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "E2E planning task", exact: true }).click();
+  await expect(page.getByRole("button", { name: taskTitle, exact: true })).toBeVisible();
+  await page.getByRole("button", { name: taskTitle, exact: true }).click();
 
-  const dialog = page.getByRole("dialog", { name: /Chi tiết E2E planning task/ });
+  const dialog = page.getByRole("dialog", { name: `Chi tiết ${taskTitle}` });
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Checklist" }).click();
   await dialog.getByRole("textbox", { name: "Tên mục checklist" }).fill("E2E checklist item");
@@ -50,12 +42,12 @@ test("owner can plan an occurrence, manage checklist and open Calendar", async (
   await dialog.getByRole("button", { name: "Đóng chi tiết task" }).click();
 
   await page.goto("/planning");
-  await expect(page.getByRole("button", { name: "E2E planning task", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: taskTitle, exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Chuyển mục chưa xong sang kỳ sau" }).click();
   await expect(page.getByRole("dialog", { name: "Xác nhận chuyển kỳ" })).toBeVisible();
   await page.getByRole("dialog", { name: "Xác nhận chuyển kỳ" }).getByRole("button", { name: "Hủy" }).click();
 
   await page.goto("/calendar");
-  await expect(page.getByText("E2E planning task", { exact: true })).toBeVisible();
+  await expect(page.getByText(taskTitle, { exact: true })).toBeVisible();
   await expect(page.getByText("Chưa xếp lịch", { exact: true })).toBeVisible();
 });

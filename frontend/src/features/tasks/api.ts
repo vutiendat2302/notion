@@ -70,6 +70,14 @@ export async function fetchCategories(): Promise<Category[]> {
   return apiRequest<Category[]>("/categories");
 }
 
+export function createCategory(payload: Pick<Category, "name" | "accent_token">): Promise<Category> {
+  return apiRequest<Category>("/categories", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export function updateCategory(id: string, payload: Partial<Pick<Category, "name" | "accent_token">> & { archived?: boolean }): Promise<Category> {
+  return apiRequest<Category>(`/categories/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
+}
+
 export async function fetchProjects(): Promise<Project[]> {
   return apiRequest<Project[]>("/projects");
 }
