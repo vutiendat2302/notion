@@ -1,5 +1,7 @@
 # Self-hosted web deployment
 
+Current public hostname: **https://notion.vtdat.com**.
+
 This installation runs in the dedicated Compose project `notion-productivity-isolated`. The existing MySQL server is shared, but the application uses its own database and database user. Backend and frontend ports bind only to loopback (`127.0.0.1:18000` and `127.0.0.1:3100`). The optional Cloudflare tunnel has separate credentials and a separate Compose service; the existing Zalo Bot tunnel and its DNS routes are outside this project.
 
 ## Configuration
@@ -26,7 +28,7 @@ After the hostname and tunnel ingress are verified, start **only** this project'
 docker compose -p notion-productivity-isolated --env-file .env -f infra/compose.yaml -f infra/compose.prod.yaml --profile public up -d cloudflare-tunnel
 ```
 
-The public DNS CNAME must target this project's tunnel ID, not the existing Zalo Bot tunnel. Confirm the target in Cloudflare DNS before sharing the URL. The tunnel ingress forwards the chosen hostname to `http://frontend:3000` and returns 404 for every other hostname.
+The public DNS CNAME for `notion.vtdat.com` targets this project's tunnel ID `e2241ea8-cbe4-4c03-968b-8659e8aded52`. Confirm the target in Cloudflare DNS before sharing the URL. The tunnel ingress forwards this hostname to `http://frontend:3000` and returns 404 for every other hostname.
 
 ## Verification and maintenance
 

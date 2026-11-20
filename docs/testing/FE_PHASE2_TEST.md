@@ -37,6 +37,9 @@ Date: 2026-11-20. Branch: `feature/fe-phase2-planning-calendar`.
 | Test data cleanup | PASS | After the E2E server stopped, users, tasks, occurrences and checklist test tables contained zero test rows. |
 | Production Compose on isolated project | PASS | Backend and recurrence worker healthy; FE returned 200 on `/`, `/planning`, `/calendar`; unauthenticated API returned 401. Bound to loopback ports 18000 and 3100. |
 | Production same-origin authentication smoke | PASS | Owner login through FE `/api/v1`, authenticated `/users/me` 200 with expected account, logout revoked the session. |
+| Public HTTPS via dedicated Cloudflare tunnel | PASS | `https://notion.vtdat.com/`, `/planning`, `/calendar` returned 200; `/api/v1/users/me` returned 401 when unauthenticated. |
+| Public Chrome login and navigation | PASS | Signed in over HTTPS, opened Planning and Calendar, then logged out through the public API. |
+| Isolation check | PASS | `oa`, `bot` and `api.vtdat.com` still pointed to the original Zalo Bot tunnel; its systemd service and MySQL/MinIO/Qdrant/OCR containers remained active and healthy. |
 
 The earlier rendering checks used synthetic data. The later Playwright flow used real MySQL behind a transactional HTTP server and rolled back all writes when the server stopped. It covers the listed happy path; drag/resize, recurrence editing and cross-owner cases remain manual or backend-level checks.
 
