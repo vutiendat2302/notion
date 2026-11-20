@@ -6,7 +6,14 @@ export async function signInOrBootstrap(page: Page): Promise<void> {
   expect(await marker.json()).toEqual({ transactional: true });
   await page.goto("/login");
   await page.getByLabel("Email").fill("browser-e2e@example.com");
-  await page.getByLabel("Password").fill("TestPassword123!");
+  const password = page.getByLabel("Password");
+  await password.fill("TestPassword123!");
+  await expect(password).toHaveAttribute("type", "password");
+  await page.getByRole("button", { name: "Hiện mật khẩu" }).click();
+  await expect(password).toHaveAttribute("type", "text");
+  await expect(password).toHaveValue("TestPassword123!");
+  await page.getByRole("button", { name: "Ẩn mật khẩu" }).click();
+  await expect(password).toHaveAttribute("type", "password");
   await page.locator("form").getByRole("button", { name: "Sign in" }).click();
   await page.waitForFunction(() => location.pathname === "/today" || Boolean(document.querySelector('[role="alert"]')));
   if (page.url().endsWith("/login")) {
