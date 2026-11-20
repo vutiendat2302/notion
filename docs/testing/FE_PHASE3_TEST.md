@@ -20,7 +20,7 @@ Date: 2026-11-20 · Branch: `feature/fe-phase3-workspaces`
 | `corepack pnpm build` | PASS | Production Next.js build includes `/projects`, `/settings`, `/planning`, `/calendar`, `/goals`, `/time-tracking`. |
 | `corepack pnpm test:e2e` | PASS | 2 Chrome tests, run against rollback-only FastAPI marker and test DB via `TransactionalProxySession`; no test rows committed. |
 
-The FE-3 browser test creates a task, saves a week plan, pins and rolls over an occurrence, creates and edits a project, persists week start across reload, creates a category and checks Calendar. The FE-2 regression test verifies checklist, task status, scheduling, Planning and Calendar.
+The FE-3 browser test creates a task, saves a week plan, pins and rolls over an occurrence, creates and edits a project, persists week start across reload, creates a category, checks Calendar, and follows the mobile Projects → Tasks link with the project filter applied. The FE-2 regression test verifies checklist, task status, scheduling, Planning and Calendar.
 
 After stopping the rollback-only server, a separate connection to the test database reported zero rows in `users`, `tasks`, `task_occurrences`, `planning_periods`, `projects` and `categories`.
 

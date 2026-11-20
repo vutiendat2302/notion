@@ -63,4 +63,7 @@ test("owner can save a plan, pin an occurrence, manage a project and preferences
   await page.getByRole("button", { name: "More navigation" }).click();
   await page.getByRole("link", { name: "Projects", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Dự án của bạn" })).toBeVisible();
+  await page.getByRole("button", { name: /FE3 project updated/ }).click();
+  await page.getByRole("link", { name: "Mở Tasks" }).click();
+  await expect(page.getByLabel("Lọc theo project")).not.toHaveValue("");
 });
