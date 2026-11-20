@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.modules.tasks.schemas.requests.workflow_requests import RecurrenceRuleRequest
+
 TaskPriority = Literal["LOW", "MEDIUM", "HIGH", "URGENT"]
 
 
@@ -23,6 +25,7 @@ class TaskCreateRequest(BaseModel):
     scheduled_date: date | None = None
     start_at: datetime | None = None
     end_at: datetime | None = None
+    recurrence: RecurrenceRuleRequest | None = None
 
     @field_validator("title")
     @classmethod
@@ -36,6 +39,10 @@ class TaskCreateRequest(BaseModel):
     def validate_time_window(self) -> TaskCreateRequest:
         if self.start_at is not None and self.end_at is not None and self.end_at <= self.start_at:
             raise ValueError("end_at must be strictly greater than start_at.")
+        if self.recurrence is not None and any(
+            value is not None for value in (self.scheduled_date, self.start_at, self.end_at)
+        ):
+            raise ValueError("Recurrence rules define occurrence dates and times")
         return self
 
 
@@ -46,6 +53,7 @@ class TaskPatchRequest(BaseModel):
     description: str | None = None
     project_id: UUID | None = None
     category_id: UUID | None = None
+    parent_task_id: UUID | None = None
     priority: TaskPriority | None = None
     estimated_minutes: int | None = Field(default=None, ge=1, le=1440)
     due_at: datetime | None = None

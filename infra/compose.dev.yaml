@@ -2,6 +2,7 @@
 
 services:
   backend:
+    image: ${COMPOSE_PROJECT_NAME:-personal-productivity}-backend-dev:latest
     build:
       context: ../backend
       dockerfile: Dockerfile
@@ -9,6 +10,16 @@ services:
     environment:
       APP_ENV: development
       APP_DEBUG: "true"
+    volumes:
+      - ../backend:/app
+      - backend_venv:/app/.venv
+
+  backend-recurrence-worker:
+    image: ${COMPOSE_PROJECT_NAME:-personal-productivity}-backend-dev:latest
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      target: dev
     volumes:
       - ../backend:/app
       - backend_venv:/app/.venv

@@ -83,6 +83,23 @@ services:
       - internal_net
       - shared_mysql_net
 
+  backend-recurrence-worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      target: runtime
+    restart: unless-stopped
+    command: ["python", "-m", "app.workers.recurrence_worker"]
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      DEFAULT_TIMEZONE: ${DEFAULT_TIMEZONE:-Asia/Ho_Chi_Minh}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in .env}
+      S2S_SIGNING_SECRET: ${S2S_SIGNING_SECRET:?Set S2S_SIGNING_SECRET in .env}
+    networks:
+      - shared_mysql_net
+
   frontend:
     build:
       context: ../frontend

@@ -22,10 +22,11 @@ from app.modules.users.repositories.user_repository import UserRepository
 
 DEFAULT_CATEGORIES: list[tuple[str, str, int]] = [
     ("Study", "LAVENDER", 1),
-    ("Health & Habit", "SAGE", 2),
+    ("Habit", "SAGE", 2),
     ("Personal", "PEACH", 3),
     ("Goals", "ROSE", 4),
-    ("Focus", "SKY", 5),
+    ("Attention", "BUTTER", 5),
+    ("Schedule", "SKY", 6),
 ]
 
 
