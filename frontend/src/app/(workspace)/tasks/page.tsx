@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { parseAsStringLiteral, useQueryState } from "nuqs";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -38,10 +38,26 @@ function TasksWorkspaceContent() {
     parseAsStringLiteral(SCOPES).withDefault("inbox")
   );
   const [selectedItem, setSelectedItem] = useState<OccurrenceWithTask | null>(null);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [projectId, setProjectId] = useState("");
+  const [offset, setOffset] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => { setSearch(searchInput.trim()); setOffset(0); }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
 
   const occurrencesQuery = useQuery({
-    queryKey: ["occurrences", scope],
-    queryFn: () => fetchOccurrences(scope),
+    queryKey: ["occurrences", scope, categoryId, projectId, search, offset],
+    queryFn: () => fetchOccurrences(scope, {
+      category_id: categoryId || undefined,
+      project_id: projectId || undefined,
+      search: search || undefined,
+      limit: 50,
+      offset,
+    }),
   });
 
   const categoriesQuery = useQuery({
@@ -115,7 +131,7 @@ function TasksWorkspaceContent() {
             <button
               key={tab}
               type="button"
-              onClick={() => void setScope(tab)}
+              onClick={() => { setOffset(0); void setScope(tab); }}
               className={cn(
                 "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
                 scope === tab
@@ -137,6 +153,18 @@ function TasksWorkspaceContent() {
         }}
       />
 
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_11rem_11rem]" role="search" aria-label="Lọc tasks">
+        <input type="search" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Tìm task..." aria-label="Tìm theo tên task" className="min-h-10 rounded-lg border border-border bg-card px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary" />
+        <select value={projectId} onChange={(event) => { setProjectId(event.target.value); setOffset(0); }} aria-label="Lọc theo project" className="min-h-10 rounded-lg border border-border bg-card px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary">
+          <option value="">Tất cả project</option>
+          {(projectsQuery.data ?? []).map((entry) => <option key={entry.id} value={entry.id}>{entry.title}</option>)}
+        </select>
+        <select value={categoryId} onChange={(event) => { setCategoryId(event.target.value); setOffset(0); }} aria-label="Lọc theo category" className="min-h-10 rounded-lg border border-border bg-card px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary">
+          <option value="">Tất cả category</option>
+          {(categoriesQuery.data ?? []).map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+        </select>
+      </div>
+
       {isUnauthorized ? (
         <div className="rounded-xl border border-border bg-card p-6">
           <p className="text-sm text-muted-foreground">
@@ -154,6 +182,11 @@ function TasksWorkspaceContent() {
           {[1, 2, 3].map((n) => (
             <div key={n} className="h-12 animate-pulse rounded-xl bg-card" />
           ))}
+        </div>
+      ) : occurrencesQuery.isError ? (
+        <div className="rounded-xl border border-destructive/30 bg-card p-6 text-sm text-destructive">
+          {occurrencesQuery.error instanceof Error ? occurrencesQuery.error.message : "Không tải được tasks."}
+          <button type="button" onClick={() => void occurrencesQuery.refetch()} className="ml-2 underline">Thử lại</button>
         </div>
       ) : items.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card/50 p-8 text-center">
@@ -179,6 +212,14 @@ function TasksWorkspaceContent() {
           ))}
         </div>
       )}
+
+      {!occurrencesQuery.isError && (occurrencesQuery.data?.pagination.total ?? 0) > 50 && <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+        <span>Hiển thị {offset + 1}–{Math.min(offset + items.length, occurrencesQuery.data!.pagination.total)} / {occurrencesQuery.data!.pagination.total}</span>
+        <div className="flex gap-2">
+          <button type="button" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - 50))} className="min-h-9 rounded-lg border border-border px-3 disabled:opacity-50">Trước</button>
+          <button type="button" disabled={offset + 50 >= occurrencesQuery.data!.pagination.total} onClick={() => setOffset(offset + 50)} className="min-h-9 rounded-lg border border-border px-3 disabled:opacity-50">Sau</button>
+        </div>
+      </div>}
 
       <TaskDetailPanel item={selectedItem} onClose={() => setSelectedItem(null)} />
     </div>

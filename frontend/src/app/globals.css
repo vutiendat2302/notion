@@ -123,6 +123,42 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.calendar-surface {
+  --fc-forma-background: var(--card);
+  --fc-forma-foreground: var(--foreground);
+  --fc-forma-muted-foreground: var(--muted-foreground);
+  --fc-forma-faint-foreground: var(--muted-foreground);
+  --fc-forma-border: var(--border);
+  --fc-forma-strong-border: var(--border);
+  --fc-forma-primary: var(--primary);
+  --fc-forma-primary-foreground: var(--primary-foreground);
+  --fc-forma-highlight: var(--accent);
+  --fc-forma-muted: var(--secondary);
+  --fc-forma-faint: var(--background);
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.calendar-surface .calendar-done {
+  opacity: 0.55;
+}
+
+.calendar-surface .fc-event {
+  cursor: pointer;
+}
+
+.calendar-surface .fc-event:focus-visible,
+.calendar-backlog-item:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .calendar-surface > * {
+    min-width: 34rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

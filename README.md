@@ -55,6 +55,8 @@ notion/
 
 ## 3. Khởi chạy & Vận hành qua Docker + Makefile
 
+Bản triển khai web trên máy chủ dùng Compose project và Cloudflare tunnel riêng; xem [hướng dẫn self-host](docs/deployment/SELF_HOSTED_WEB.md). Các lệnh Makefile bên dưới phục vụ môi trường phát triển và không tự bật tunnel công khai.
+
 ### Chuẩn bị biến môi trường
 
 ```bash

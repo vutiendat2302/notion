@@ -1,0 +1,40 @@
+# Self-hosted web deployment. The public tunnel is opt-in until the owner
+# account has been initialized on the private origin.
+services:
+  backend:
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      COOKIE_SECURE: "true"
+      CORS_ALLOWED_ORIGINS: https://${APP_PUBLIC_HOSTNAME:?Set APP_PUBLIC_HOSTNAME}
+
+  backend-recurrence-worker:
+    environment:
+      APP_ENV: production
+
+  frontend:
+    build:
+      args:
+        NEXT_PUBLIC_API_BASE_URL: /api/v1
+        INTERNAL_API_BASE_URL: http://backend:8000/api/v1
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: /api/v1
+      INTERNAL_API_BASE_URL: http://backend:8000/api/v1
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  cloudflare-tunnel:
+    profiles: ["public"]
+    image: cloudflare/cloudflared:2026.11.1
+    restart: unless-stopped
+    user: "1000:1000"
+    command: ["tunnel", "--config", "/etc/cloudflared/config.yml", "run"]
+    volumes:
+      - ${TUNNEL_CONFIG_PATH:-/dev/null}:/etc/cloudflared/config.yml:ro
+      - ${TUNNEL_CREDENTIALS_PATH:-/dev/null}:/etc/cloudflared/credentials.json:ro
+    depends_on:
+      frontend:
+        condition: service_started
+    networks:
+      - internal_net

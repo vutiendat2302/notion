@@ -10,7 +10,7 @@ RUN corepack enable
 # --- Dependencies stage ---
 FROM base AS deps
 
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 # --- Development stage (hot-reload) ---
@@ -26,6 +26,8 @@ FROM deps AS builder
 
 ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api/v1
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+ARG INTERNAL_API_BASE_URL=http://backend:8000/api/v1
+ENV INTERNAL_API_BASE_URL=${INTERNAL_API_BASE_URL}
 
 COPY . .
 RUN pnpm build
