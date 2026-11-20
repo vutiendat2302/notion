@@ -45,6 +45,7 @@ async def main() -> None:
             await server.serve()
         finally:
             app.dependency_overrides.clear()
+
             async def cleanup() -> None:
                 await session.close()
                 await outer_transaction.rollback()

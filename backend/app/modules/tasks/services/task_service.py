@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import UTC, date, datetime, time, timedelta
 from typing import cast
 from uuid import UUID
 from zoneinfo import ZoneInfo
@@ -286,11 +286,16 @@ class TaskService:
     ) -> tuple[list[TaskOccurrence], int]:
         user_settings = await self.user_repo.get_settings_by_user_id(user_id)
         tz_name = user_settings.timezone if user_settings else get_settings().default_timezone
-        local_today = datetime.now(ZoneInfo(tz_name)).date()
+        zone = ZoneInfo(tz_name)
+        local_today = datetime.now(zone).date()
+        local_end_utc = datetime.combine(
+            local_today + timedelta(days=1), time.min, zone
+        ).astimezone(UTC)
         return await self.repo.list_occurrences(
             user_id,
             scope=scope,
             local_today=local_today,
+            local_end_utc=local_end_utc,
             project_id=project_id,
             category_id=category_id,
             search=search,
