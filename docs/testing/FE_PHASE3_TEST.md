@@ -24,6 +24,8 @@ The FE-3 browser test creates a task, saves a week plan, pins and rolls over an 
 
 After stopping the rollback-only server, a separate connection to the test database reported zero rows in `users`, `tasks`, `task_occurrences`, `planning_periods`, `projects` and `categories`.
 
+Production smoke check: rebuilt and recreated only the `frontend` service in Compose project `notion-productivity-isolated`. The public URL returned HTTP 200 for `/`, `/projects`, `/planning` and `/settings`; an unauthenticated `/api/v1/users/me` returned the expected 401. A Chrome session signed in with the existing owner account and displayed Projects, Planning and Settings. The Zalo Bot containers remained running and healthy.
+
 ## Manual regression checklist
 
 1. Sign in as the owner; check Planning for all five scopes and verify the displayed period boundaries follow the account timezone and week start.
