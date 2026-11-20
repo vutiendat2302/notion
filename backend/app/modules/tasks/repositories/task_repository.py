@@ -1,7 +1,7 @@
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -112,6 +112,7 @@ class TaskRepository:
         *,
         scope: str = "all",
         local_today: date,
+        local_end_utc: datetime,
         project_id: UUID | None = None,
         category_id: UUID | None = None,
         search: str | None = None,
@@ -141,7 +142,10 @@ class TaskRepository:
             )
         elif scope == "today":
             stmt = stmt.where(
-                TaskOccurrence.scheduled_date <= local_today,
+                or_(
+                    TaskOccurrence.scheduled_date <= local_today,
+                    TaskOccurrence.due_at < local_end_utc,
+                ),
                 TaskOccurrence.status.in_(("NOT_STARTED", "IN_PROGRESS")),
             )
         elif scope == "upcoming":
