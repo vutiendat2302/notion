@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { parseAsStringLiteral, useQueryState } from "nuqs";
+import { parseAsString, parseAsStringLiteral, useQueryState } from "nuqs";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -41,7 +41,7 @@ function TasksWorkspaceContent() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [categoryId, setCategoryId] = useState("");
-  const [projectId, setProjectId] = useState("");
+  const [projectId, setProjectId] = useQueryState("project_id", parseAsString.withDefault(""));
   const [offset, setOffset] = useState(0);
 
   useEffect(() => {

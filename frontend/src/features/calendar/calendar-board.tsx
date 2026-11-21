@@ -13,11 +13,12 @@ import listPlugin from "@fullcalendar/react/list";
 import timeGridPlugin from "@fullcalendar/react/timegrid";
 import themePlugin from "@fullcalendar/react/themes/forma";
 import viLocale from "@fullcalendar/react/locales/vi";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { dateInTimeZone } from "@/features/planning/period";
+import { fetchCalendarConflicts, fetchCalendarEvents } from "@/features/calendar/api";
 import { patchOccurrence } from "@/features/tasks/api";
 import { TaskDetailPanel } from "@/features/tasks/task-detail-panel";
 import type { Category, OccurrenceWithTask, Project } from "@/types/domain";
@@ -40,7 +41,6 @@ interface PendingMove {
   scheduledDate: string;
   startAt: string | null;
   endAt: string | null;
-  conflictCount: number;
 }
 
 const VIEWS: { value: ViewName; label: string }[] = [
@@ -65,18 +65,13 @@ function proposedMove(
   start: Date,
   allDay: boolean,
   end: Date | null,
-  items: OccurrenceWithTask[],
   timezone: string,
   dateString: string
 ): PendingMove {
   const startAt = allDay ? null : start.toISOString();
   const endAt = allDay ? null : (end ?? new Date(start.getTime() + (item.estimated_minutes ?? 30) * 60_000)).toISOString();
   const scheduledDate = allDay ? dateString.slice(0, 10) : dateInTimeZone(start, timezone);
-  const conflictCount = startAt && endAt ? items.filter((other) =>
-    other.id !== item.id && other.status !== "CANCELLED" && other.start_at && other.end_at &&
-    other.start_at < endAt && other.end_at > startAt
-  ).length : 0;
-  return { item, scheduledDate, startAt, endAt, conflictCount };
+  return { item, scheduledDate, startAt, endAt };
 }
 
 export default function CalendarBoard({ items, categories, projects, timezone, firstDay }: Props) {
@@ -87,6 +82,9 @@ export default function CalendarBoard({ items, categories, projects, timezone, f
   const [title, setTitle] = useState("");
   const [selected, setSelected] = useState<OccurrenceWithTask | null>(null);
   const [pending, setPending] = useState<PendingMove | null>(null);
+  const [range, setRange] = useState<{ start: string; end: string } | null>(null);
+  const projection = useQuery({ queryKey: ["calendar-events", range?.start, range?.end], queryFn: () => fetchCalendarEvents(range!.start, range!.end), enabled: Boolean(range) });
+  const conflicts = useQuery({ queryKey: ["calendar-conflicts", pending?.startAt, pending?.endAt, pending?.item.id], queryFn: () => fetchCalendarConflicts(pending!.startAt!, pending!.endAt!, pending!.item.id), enabled: Boolean(pending?.startAt && pending?.endAt) });
 
   const itemMap = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
   const categoryMap = useMemo(() => new Map(categories.map((item) => [item.id, item])), [categories]);
@@ -94,25 +92,30 @@ export default function CalendarBoard({ items, categories, projects, timezone, f
   const backlog = items.filter((item) => item.scheduled_date === null && item.start_at === null &&
     (item.status === "NOT_STARTED" || item.status === "IN_PROGRESS"));
 
-  const events = useMemo<EventInput[]>(() => items.flatMap((item) => {
-    const start = item.start_at ?? item.scheduled_date;
-    if (!start) return [];
-    const category = item.task.category_id ? categoryMap.get(item.task.category_id) : undefined;
+  const events = useMemo<EventInput[]>(() => {
+    if (!projection.data) return [];
+    const scheduled = [...projection.data.all_day_occurrences, ...projection.data.timed_occurrences];
+    const primary: EventInput[] = scheduled.map((entry) => {
+    const item = itemMap.get(entry.occurrence_id);
+    const category = item?.task.category_id ? categoryMap.get(item.task.category_id) : undefined;
     const color = COLORS[category?.accent_token ?? "SLATE"];
-    return [{
-      id: item.id,
-      title: item.task.title,
-      start,
-      end: item.start_at ? item.end_at ?? new Date(new Date(item.start_at).getTime() + (item.estimated_minutes ?? 30) * 60_000).toISOString() : undefined,
-      allDay: !item.start_at,
-      startEditable: item.status === "NOT_STARTED" || item.status === "IN_PROGRESS",
-      durationEditable: Boolean(item.start_at) && item.status !== "DONE",
+    return {
+      id: entry.occurrence_id,
+      title: entry.title,
+      start: entry.start_at ?? entry.scheduled_date ?? undefined,
+      end: entry.end_at ?? undefined,
+      allDay: !entry.start_at,
+      startEditable: Boolean(item) && (entry.status === "NOT_STARTED" || entry.status === "IN_PROGRESS"),
+      durationEditable: Boolean(item && entry.start_at) && entry.status !== "DONE",
       backgroundColor: color.fill,
       borderColor: color.line,
       textColor: color.text,
-      classNames: item.status === "DONE" ? ["calendar-done"] : [],
-    }];
-  }), [items, categoryMap]);
+      classNames: entry.status === "DONE" ? ["calendar-done"] : [],
+    };
+    });
+    const due: EventInput[] = projection.data.due_markers.map((marker) => ({ id: `due:${marker.occurrence_id}`, title: `Hạn · ${marker.title}`, start: marker.due_at, allDay: false, editable: false, backgroundColor: "var(--category-butter-soft)", borderColor: "var(--category-butter)", textColor: "var(--category-butter-text)" }));
+    return [...primary, ...due];
+  }, [projection.data, itemMap, categoryMap]);
 
   useEffect(() => {
     if (!backlogRef.current) return;
@@ -134,6 +137,8 @@ export default function CalendarBoard({ items, categories, projects, timezone, f
       setPending(null);
       await queryClient.invalidateQueries({ queryKey: ["occurrence-catalog"] });
       await queryClient.invalidateQueries({ queryKey: ["occurrences"] });
+      await queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+      await queryClient.invalidateQueries({ queryKey: ["planning-period"] });
       toast.success("Đã cập nhật lịch thực hiện.");
     },
     onError: (error) => {
@@ -147,13 +152,13 @@ export default function CalendarBoard({ items, categories, projects, timezone, f
     const start = info.event.start;
     info.revert();
     if (!item || !start) return;
-    setPending(proposedMove(item, start, info.event.allDay, info.event.end, items, timezone, info.event.startStr));
+    setPending(proposedMove(item, start, info.event.allDay, info.event.end, timezone, info.event.startStr));
   };
 
   const handleExternalDrop = (info: DropInfo) => {
     const item = itemMap.get(info.draggedEl.dataset.occurrenceId ?? "");
     if (!item) return;
-    setPending(proposedMove(item, info.date, info.allDay, null, items, timezone, info.dateStr));
+    setPending(proposedMove(item, info.date, info.allDay, null, timezone, info.dateStr));
   };
 
   return <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_14rem]">
@@ -181,11 +186,12 @@ export default function CalendarBoard({ items, categories, projects, timezone, f
           headerToolbar={false} height="auto" dayMaxEvents={3}
           nowIndicator editable droppable selectable={false}
           events={events}
-          datesSet={(info) => setTitle(info.view.title)}
-          eventClick={(info) => { const item = itemMap.get(info.event.id); if (item) setSelected(item); }}
+          datesSet={(info) => { setTitle(info.view.title); setRange({ start: info.startStr.slice(0, 10), end: info.endStr.slice(0, 10) }); }}
+          eventClick={(info) => { const item = itemMap.get(info.event.id.replace(/^due:/, "")); if (item) setSelected(item); }}
           eventDrop={handleMove} eventResize={handleMove} drop={handleExternalDrop}
         />
       </div>
+      {projection.isError && <p className="mt-3 text-sm text-destructive">Không tải được sự kiện lịch. <button type="button" onClick={() => void projection.refetch()} className="underline">Thử lại</button></p>}
     </section>
     <aside className="rounded-xl border border-border bg-card p-4">
       <h2 className="text-sm font-semibold">Chưa xếp lịch</h2>
@@ -207,12 +213,14 @@ export default function CalendarBoard({ items, categories, projects, timezone, f
       <section className="w-full max-w-md rounded-xl bg-card p-5 shadow-xl">
         <h2 className="text-lg font-semibold">Đổi lịch thực hiện</h2>
         <p className="mt-2 text-sm text-muted-foreground">{pending.item.task.title} → {pending.scheduledDate}{pending.startAt ? ` · ${new Intl.DateTimeFormat("vi-VN", { timeZone: timezone, hour: "2-digit", minute: "2-digit" }).format(new Date(pending.startAt))}` : " · Cả ngày"}</p>
-        {pending.conflictCount > 0 && <p className="mt-3 rounded-lg bg-[var(--category-butter-soft)] p-3 text-xs text-[var(--category-butter-text)]">Có {pending.conflictCount} khung giờ khác đang trùng. Bạn vẫn có thể lưu nếu chủ động lên lịch song song.</p>}
+        {pending.startAt && conflicts.isLoading && <p className="mt-3 text-xs text-muted-foreground">Đang kiểm tra trùng lịch…</p>}
+        {pending.startAt && conflicts.isError && <p className="mt-3 text-xs text-destructive">Không kiểm tra được trùng lịch. <button type="button" onClick={() => void conflicts.refetch()} className="underline">Thử lại</button></p>}
+        {conflicts.data?.has_conflict && <p className="mt-3 rounded-lg bg-[var(--category-butter-soft)] p-3 text-xs text-[var(--category-butter-text)]">Có {conflicts.data.conflicts.length} khung giờ khác đang trùng. Bạn vẫn có thể lưu nếu chủ động lên lịch song song.</p>}
         {pending.item.task.is_recurring && <p className="mt-3 text-xs text-muted-foreground">Đây là task lặp. Dời trên lịch chỉ sửa lần này; thay đổi các lần tương lai trong quy tắc lặp.</p>}
         <div className="mt-5 flex flex-wrap justify-end gap-2">
           <button type="button" onClick={() => setPending(null)} className="min-h-10 rounded-lg border border-border px-4 text-sm">Hủy</button>
           {pending.item.task.is_recurring && <button type="button" onClick={() => { setSelected(pending.item); setPending(null); }} className="min-h-10 rounded-lg border border-border px-4 text-sm">Các lần tương lai</button>}
-          <button type="button" disabled={moveMutation.isPending} onClick={() => moveMutation.mutate(pending)} className="min-h-10 rounded-lg bg-primary px-4 text-sm text-primary-foreground disabled:opacity-50">{moveMutation.isPending ? "Đang lưu…" : "Chỉ lần này"}</button>
+          <button type="button" disabled={moveMutation.isPending || (Boolean(pending.startAt) && !conflicts.data)} onClick={() => moveMutation.mutate(pending)} className="min-h-10 rounded-lg bg-primary px-4 text-sm text-primary-foreground disabled:opacity-50">{moveMutation.isPending ? "Đang lưu…" : "Chỉ lần này"}</button>
         </div>
       </section>
     </div>}

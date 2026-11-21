@@ -1,9 +1,12 @@
 "use client";
 
 import { Monitor, Moon, Sun } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
+import { toast } from "sonner";
 
+import { fetchCurrentUser, updateSettings } from "@/features/users/api";
 import { cn } from "@/lib/utils";
 
 const OPTIONS = [
@@ -25,6 +28,15 @@ function useIsMounted(): boolean {
 export function ThemeSwitcher({ compact = false }: { compact?: boolean }) {
   const { theme, setTheme } = useTheme();
   const mounted = useIsMounted();
+  const client = useQueryClient();
+  const user = useQuery({ queryKey: ["me"], queryFn: fetchCurrentUser, retry: false });
+  const storedTheme = user.data?.settings?.theme;
+  useEffect(() => { if (storedTheme) setTheme(storedTheme.toLowerCase()); }, [storedTheme, setTheme]);
+  const save = useMutation({
+    mutationFn: (value: "LIGHT" | "DARK" | "SYSTEM") => updateSettings({ theme: value }),
+    onSuccess: async () => { await client.invalidateQueries({ queryKey: ["me"] }); },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "Không lưu được theme."),
+  });
 
   if (!mounted) {
     return (
@@ -45,7 +57,8 @@ export function ThemeSwitcher({ compact = false }: { compact?: boolean }) {
           <button
             key={opt.value}
             type="button"
-            onClick={() => setTheme(opt.value)}
+            onClick={() => { setTheme(opt.value); if (user.data) save.mutate(opt.value.toUpperCase() as "LIGHT" | "DARK" | "SYSTEM"); }}
+            disabled={save.isPending}
             aria-label={`Switch to ${opt.label} theme`}
             aria-pressed={active}
             className={cn(
