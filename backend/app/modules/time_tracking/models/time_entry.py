@@ -56,6 +56,7 @@ class TimeEntry(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     duration_seconds: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default=text("0")
     )
+    planned_duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     note: Mapped[str | None] = mapped_column(String(500), nullable=True)
     active_user_lock: Mapped[UUID | None] = mapped_column(
         UUIDBinary16(),

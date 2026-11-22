@@ -15,14 +15,14 @@ export function proxy(request: NextRequest) {
 
   if (PUBLIC_AUTH_ROUTES.has(pathname)) {
     if (hasSessionCookie) {
-      return NextResponse.redirect(new URL("/today", request.url));
+      return NextResponse.redirect(new URL("/time-tracking", request.url));
     }
     return NextResponse.next();
   }
 
   if (!hasSessionCookie) {
     const loginUrl = new URL("/login", request.url);
-    if (pathname !== "/" && pathname !== "/today") {
+    if (pathname !== "/" && pathname !== "/time-tracking") {
       loginUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
     }
     return NextResponse.redirect(loginUrl);

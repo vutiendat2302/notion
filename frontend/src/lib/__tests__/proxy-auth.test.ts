@@ -26,20 +26,21 @@ describe("proxy route auth gate", () => {
     expect(proxy(req).status).toBe(200);
   });
 
-  it("redirects authenticated user from /login to /today", () => {
+  it("redirects authenticated user from /login to /time-tracking", () => {
     const req = new NextRequest("http://localhost:3010/login", {
       headers: { cookie: "access_token=abc" },
     });
     const res = proxy(req);
     expect(res.status).toBe(307);
-    expect(res.headers.get("location")).toBe("http://localhost:3010/today");
+    expect(res.headers.get("location")).toBe("http://localhost:3010/time-tracking");
   });
 
   it("allows authenticated user into workspace routes", () => {
-    const req = new NextRequest("http://localhost:3010/admin/users", {
-      headers: { cookie: "refresh_token=xyz" },
-    });
-    const res = proxy(req);
-    expect(res.status).toBe(200);
+    for (const path of ["/admin/users", "/dashboard", "/todo-list", "/goals", "/pages/custom-1"]) {
+      const req = new NextRequest(`http://localhost:3010${path}`, {
+        headers: { cookie: "refresh_token=xyz" },
+      });
+      expect(proxy(req).status).toBe(200);
+    }
   });
 });

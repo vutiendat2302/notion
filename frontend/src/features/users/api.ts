@@ -53,6 +53,7 @@ export async function updateMyProfile(payload: {
   display_name?: string;
   email?: string | null;
   phone?: string | null;
+  avatar_file_id?: string | null;
 }): Promise<User> {
   return apiRequest<User>("/users/me", {
     method: "PATCH",
@@ -60,11 +61,47 @@ export async function updateMyProfile(payload: {
   });
 }
 
+export async function changeMyPassword(payload: {
+  current_password: string;
+  new_password: string;
+  confirm_password: string;
+}): Promise<{ updated: boolean }> {
+  return apiRequest<{ updated: boolean }>("/users/me/change-password", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function uploadUserFile(
+  file: File,
+  folder: "avatars" | "sounds/countdown" | "sounds/finish" | "attachments" | "ai-uploads"
+): Promise<{
+  id: string;
+  original_filename: string;
+  mime_type: string;
+  size_bytes: number;
+  stream_url: string;
+}> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("folder", folder);
+  return apiRequest("/storage/upload", {
+    method: "POST",
+    body: formData,
+  });
+}
+
 export function updateSettings(
   payload: Partial<
     Pick<
       UserSettings,
-      "timezone" | "week_starts_on" | "locale" | "theme" | "color_theme" | "working_hours_json"
+      | "timezone"
+      | "week_starts_on"
+      | "locale"
+      | "theme"
+      | "color_theme"
+      | "working_hours_json"
+      | "preferences_json"
     >
   >
 ): Promise<UserSettings> {

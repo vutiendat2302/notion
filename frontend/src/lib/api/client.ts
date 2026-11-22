@@ -3,6 +3,18 @@ import type { ApiErrorEnvelope } from "@/types/domain";
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
 
+export function resolveMediaUrl(url: string): string {
+  if (!url) return url;
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("blob:") || url.startsWith("data:")) {
+    return url;
+  }
+  if (url.startsWith("/api/v1/")) {
+    const apiOrigin = API_BASE_URL.replace(/\/api\/v1\/?$/, "");
+    return `${apiOrigin}${url}`;
+  }
+  return url;
+}
+
 export class ApiClientError extends Error {
   status: number;
   code: string;
@@ -75,7 +87,7 @@ export async function apiRequest<T>(
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   const method = (options.method ?? "GET").toUpperCase();
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(options.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
     ...(options.headers as Record<string, string> | undefined),
   };
 
@@ -125,4 +137,25 @@ export async function apiRequest<T>(
   }
 
   return (await response.json()) as T;
+}
+
+export async function fetchBinaryWithRefresh(
+  url: string,
+  allowRetry = true
+): Promise<{ buffer: ArrayBuffer; contentType: string }> {
+  const targetUrl = resolveMediaUrl(url);
+  const response = await fetch(targetUrl, { credentials: "include" });
+  if (response.status === 401 && allowRetry) {
+    const refreshed = await tryRefreshSession();
+    if (refreshed) {
+      return fetchBinaryWithRefresh(url, false);
+    }
+  }
+  if (!response.ok) {
+    throw new Error(`Failed to fetch media (${response.status})`);
+  }
+  return {
+    buffer: await response.arrayBuffer(),
+    contentType: response.headers.get("content-type") || "audio/mpeg",
+  };
 }

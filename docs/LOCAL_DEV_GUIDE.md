@@ -6,7 +6,7 @@
 
 ## 1. Bảng phân bổ cổng toàn máy (Không trùng nhau)
 
-| Dịch vụ | `vsico_zalo_bot` | `notion` (Prod `notion.vtdat.com`) | `notion` (Dev qua `Makefile`) |
+| Dịch vụ | `vsico_zalo_bot` | `LumiPlan` (Prod `lumiplan.vtdat.com`) | `LumiPlan` (Dev qua `Makefile`) |
 |---|---|---|---|
 | **Backend API** | `8000` | `18000` | **`8010`** (`make be-dev`) |
 | **Frontend Web** | `3001` *(OA Bridge: `3000`)* | `3100` | **`3010`** (`make fe-dev`) |
@@ -64,10 +64,14 @@ make dev-logs SVC=backend # Xem log BE dev
 make dev-down            # Tắt cụm dev (giữ nguyên DB, Prod 18000/3100 và Zalo Bot)
 ```
 
-### Bật Storage / AI (khi cần)
+### Bật Storage / AI / OCR (khi cần)
 ```bash
 make up-storage          # Bật MinIO riêng của Notion ở 9010 / 9011
 make ai-db-migrate       # Migrate 5 bảng của notion_ai_metadata_db
-make up-ai               # Bật MinIO + Qdrant (6343) + Ollama (11444) + OCR + AI
+make up-ai               # Bật MinIO + Qdrant (6343) + Ollama (11444) + OCR (:8866) + AI (:8001)
 ```
-*(Lưu ý: `ai-service/` hiện mới có `Dockerfile` + `db/` và `ocr-service/` mới có `Dockerfile`, chưa có source FastAPI Phase 3.)*
+- **Model AI mặc định (`2026`):** Local Ollama `qwen3:8b` (`bge-m3` embeddings), cùng tùy chọn Cloud per-user hoặc server key trong `/settings`: Claude `claude-sonnet-4-6`, Codex `gpt-5.4`, Gemini `gemini-3-flash-preview`.
+- **Chạy unit test cục bộ (`ai-service`):**
+  ```bash
+  cd ai-service && PYTHONPATH=. ../backend/.venv-local/bin/pytest -v tests/test_planning_agent.py
+  ```

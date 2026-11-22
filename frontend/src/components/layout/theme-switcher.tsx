@@ -1,19 +1,14 @@
 "use client";
 
-import { Check, ChevronDown, Monitor, Moon, Sun } from "lucide-react";
+import { Check, Monitor, Moon, Sun } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 
 import { fetchCurrentUser, updateSettings } from "@/features/users/api";
+import { useI18n } from "@/i18n/i18n-provider";
 import { cn } from "@/lib/utils";
-
-const OPTIONS = [
-  { value: "light", label: "Sáng", icon: Sun },
-  { value: "dark", label: "Tối", icon: Moon },
-  { value: "system", label: "Hệ thống", icon: Monitor },
-] as const;
 
 const emptySubscribe = () => () => {};
 
@@ -25,14 +20,21 @@ function useIsMounted(): boolean {
   );
 }
 
-export function ThemeSwitcher({ compact = false }: { compact?: boolean }) {
+export function ThemeSwitcher() {
   const { theme, setTheme } = useTheme();
+  const { t } = useI18n();
   const mounted = useIsMounted();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const client = useQueryClient();
   const user = useQuery({ queryKey: ["me"], queryFn: fetchCurrentUser, retry: false });
   const storedTheme = user.data?.settings?.theme;
+
+  const options = [
+    { value: "light", label: t.theme.light, icon: Sun },
+    { value: "dark", label: t.theme.dark, icon: Moon },
+    { value: "system", label: t.theme.system, icon: Monitor },
+  ] as const;
 
   useEffect(() => {
     if (storedTheme) {
@@ -64,21 +66,14 @@ export function ThemeSwitcher({ compact = false }: { compact?: boolean }) {
       await client.invalidateQueries({ queryKey: ["me"] });
     },
     onError: (error) =>
-      toast.error(error instanceof Error ? error.message : "Không lưu được giao diện."),
+      toast.error(error instanceof Error ? error.message : "Failed to save theme."),
   });
 
   if (!mounted) {
-    return (
-      <div
-        className={cn(
-          "h-9 rounded-lg border border-border bg-secondary/50",
-          compact ? "w-14" : "w-32"
-        )}
-      />
-    );
+    return <div className="h-9 w-9 rounded-lg border border-border bg-secondary/50" />;
   }
 
-  const currentOption = OPTIONS.find((opt) => opt.value === theme) ?? OPTIONS[2];
+  const currentOption = options.find((opt) => opt.value === theme) ?? options[2];
   const CurrentIcon = currentOption.icon;
 
   return (
@@ -89,30 +84,22 @@ export function ThemeSwitcher({ compact = false }: { compact?: boolean }) {
         disabled={save.isPending}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={`Giao diện: ${currentOption.label}`}
+        aria-label={`${t.theme.label}: ${currentOption.label}`}
         className={cn(
-          "inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary",
+          "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-foreground transition-colors hover:bg-secondary",
           open && "border-primary/60 bg-secondary"
         )}
       >
-        <CurrentIcon className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-        {!compact && <span>{currentOption.label}</span>}
-        <ChevronDown
-          className={cn(
-            "h-3.5 w-3.5 text-muted-foreground transition-transform duration-150",
-            open && "rotate-180"
-          )}
-          aria-hidden="true"
-        />
+        <CurrentIcon className="h-4 w-4 text-primary" aria-hidden="true" />
       </button>
 
       {open && (
         <div
           role="menu"
-          aria-label="Chọn giao diện"
+          aria-label={t.theme.label}
           className="absolute right-0 z-50 mt-1.5 w-36 origin-top-right rounded-xl border border-border bg-popover p-1 shadow-md"
         >
-          {OPTIONS.map((opt) => {
+          {options.map((opt) => {
             const Icon = opt.icon;
             const active = currentOption.value === opt.value;
             return (

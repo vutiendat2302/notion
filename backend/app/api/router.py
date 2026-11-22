@@ -1,13 +1,18 @@
 from fastapi import APIRouter
 
 from app.core.config import get_settings
+from app.modules.ai_gateway.api.ai_gateway_router import router as ai_gateway_router
 from app.modules.analytics.api.analytics_router import router as analytics_router
 from app.modules.auth.api.auth_router import router as auth_router
 from app.modules.calendar.api.calendar_router import router as calendar_router
+from app.modules.dashboards.api.block_template_router import router as block_template_router
+from app.modules.dashboards.api.dashboard_router import router as dashboard_router
 from app.modules.goals.api.goal_router import router as goal_router
+from app.modules.habits.api.habit_router import router as habit_router
 from app.modules.planning.api.planning_router import router as planning_router
 from app.modules.projects.api.project_router import router as project_router
 from app.modules.reminders.api.reminder_router import router as reminder_router
+from app.modules.storage.api.storage_router import router as storage_router
 from app.modules.tasks.api.occurrence_router import router as occurrence_router
 from app.modules.tasks.api.task_router import router as task_router
 from app.modules.taxonomy.api.category_router import router as category_router
@@ -40,5 +45,10 @@ api_v1_router.include_router(planning_router)
 api_v1_router.include_router(calendar_router)
 api_v1_router.include_router(time_tracking_router)
 api_v1_router.include_router(goal_router)
+api_v1_router.include_router(habit_router)
 api_v1_router.include_router(reminder_router)
 api_v1_router.include_router(analytics_router)
+api_v1_router.include_router(storage_router)
+api_v1_router.include_router(dashboard_router)
+api_v1_router.include_router(block_template_router)
+api_v1_router.include_router(ai_gateway_router)

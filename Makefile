@@ -97,6 +97,7 @@ be-local: env
 	cd backend && set -a && source ../$(APP_ENV_FILE) && set +a && \
 		DATABASE_URL="$${DATABASE_URL//@vsico-zalo-mysql:3306/@127.0.0.1:3306}" \
 		MINIO_ENDPOINT="127.0.0.1:$${MINIO_API_PORT:-9010}" \
+		AI_SERVICE_BASE_URL="http://127.0.0.1:$${AI_SERVICE_PORT:-8001}" \
 		CORS_ALLOWED_ORIGINS="$(DEV_CORS_ORIGINS)" \
 		.venv-local/bin/uvicorn app.main:app --reload --host 127.0.0.1 --port $(DEV_BACKEND_PORT)
 

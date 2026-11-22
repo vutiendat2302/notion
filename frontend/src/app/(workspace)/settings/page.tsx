@@ -1,64 +1,150 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
+import { Bot, Camera, KeyRound, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState, type ChangeEvent, type FormEvent } from "react";
 import { toast } from "sonner";
 
-import { ThemeSwitcher } from "@/components/layout/theme-switcher";
-import { createCategory, fetchCategories, updateCategory } from "@/features/tasks/api";
+import { PasswordInput } from "@/components/ui/password-input";
+import { fetchAvailableAIAgents } from "@/features/ai/api";
 import {
+  changeMyPassword,
   fetchCurrentUser,
-  fetchMySessions,
   logoutAccount,
-  revokeMySession,
   updateMyProfile,
   updateSettings,
+  uploadUserFile,
 } from "@/features/users/api";
-import { ApiClientError } from "@/lib/api/client";
+import { useI18n } from "@/i18n/i18n-provider";
+import { resolveMediaUrl } from "@/lib/api/client";
 import { validateEmail, validatePhone, validateUsername } from "@/lib/validation";
-import type { AccentToken, Category, User, UserSettings } from "@/types/domain";
+import type { AIAgentOption, User, UserSettings } from "@/types/domain";
 
-const ACCENTS: AccentToken[] = ["LAVENDER", "SAGE", "PEACH", "ROSE", "BUTTER", "SKY", "SLATE"];
+type AgentChoice = "local" | "claude" | "codex" | "gemini";
 
-function AccountProfileSection({ user }: { user: User }) {
+const FALLBACK_AGENTS: AIAgentOption[] = [
+  {
+    id: "local",
+    label: "AI Local (Ollama)",
+    model_id: "qwen3:8b",
+    requires_api_key: false,
+    server_configured: true,
+  },
+  {
+    id: "claude",
+    label: "Claude (Anthropic)",
+    model_id: "claude-sonnet-4-6",
+    requires_api_key: true,
+    server_configured: false,
+  },
+  {
+    id: "codex",
+    label: "Codex (OpenAI)",
+    model_id: "gpt-5.4",
+    requires_api_key: true,
+    server_configured: false,
+  },
+  {
+    id: "gemini",
+    label: "Gemini (Google)",
+    model_id: "gemini-3-flash-preview",
+    requires_api_key: true,
+    server_configured: false,
+  },
+];
+
+function SettingsBody({ user, settings }: { user: User; settings: UserSettings }) {
+  const { t, locale } = useI18n();
   const client = useQueryClient();
   const router = useRouter();
-  const [username, setUsername] = useState(user.username ?? "");
+
+  const agentsQuery = useQuery({
+    queryKey: ["ai-agents"],
+    queryFn: fetchAvailableAIAgents,
+    retry: false,
+  });
+  const agentOptions = agentsQuery.data?.length ? agentsQuery.data : FALLBACK_AGENTS;
+
+  // Account Profile state
   const [displayName, setDisplayName] = useState(user.display_name);
+  const [username, setUsername] = useState(user.username ?? "");
   const [email, setEmail] = useState(user.email ?? "");
   const [phone, setPhone] = useState(user.phone ?? "");
+  const [avatarFileId, setAvatarFileId] = useState<string | null>(user.avatar_file_id ?? null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-  const sessionsQuery = useQuery({
-    queryKey: ["my-sessions"],
-    queryFn: fetchMySessions,
-  });
+  // Password state
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  // AI Agent (strictly 2 boxes: 1 dropdown + 1 API key input for selected agent)
+  const savedAi = (settings.preferences_json?.ai ?? {}) as Record<string, unknown>;
+  const [preferredAgent, setPreferredAgent] = useState<AgentChoice>(
+    ((savedAi.preferred_agent as AgentChoice | undefined) ?? "local")
+  );
+  const [apiKeyInput, setApiKeyInput] = useState("");
+
+  const activeAgentMeta =
+    agentOptions.find((a) => a.id === preferredAgent) ?? agentOptions[0];
+  const hasSavedUserKey =
+    preferredAgent !== "local" && Boolean(savedAi[`has_${preferredAgent}_key`]);
+  const savedKeyHint =
+    preferredAgent !== "local" ? (savedAi[`${preferredAgent}_key_hint`] as string | undefined) : undefined;
 
   const saveProfile = useMutation({
     mutationFn: () =>
       updateMyProfile({
-        username: username.trim() || null,
         display_name: displayName.trim(),
+        username: username.trim() || null,
         email: email.trim() || null,
         phone: phone.trim() || null,
+        avatar_file_id: avatarFileId,
       }),
     onSuccess: async () => {
       await client.invalidateQueries({ queryKey: ["me"] });
-      toast.success("Đã cập nhật thông tin tài khoản.");
+      toast.success(t.account.saveProfile);
     },
-    onError: (error) =>
-      toast.error(error instanceof Error ? error.message : "Không cập nhật được tài khoản."),
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed"),
   });
 
-  const revokeMutation = useMutation({
-    mutationFn: (sessionId: string) => revokeMySession(sessionId),
-    onSuccess: async () => {
-      await client.invalidateQueries({ queryKey: ["my-sessions"] });
-      toast.success("Đã thu hồi phiên đăng nhập.");
+  const savePassword = useMutation({
+    mutationFn: () =>
+      changeMyPassword({
+        current_password: currentPassword,
+        new_password: newPassword,
+        confirm_password: confirmPassword,
+      }),
+    onSuccess: () => {
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setShowPasswordForm(false);
+      toast.success(t.account.updatePassword);
     },
-    onError: (error) =>
-      toast.error(error instanceof Error ? error.message : "Không thu hồi được phiên."),
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed"),
+  });
+
+  const saveAiSettings = useMutation({
+    mutationFn: (opts?: { clearSelectedKey?: boolean }) => {
+      const aiPayload: Record<string, unknown> = { preferred_agent: preferredAgent };
+      if (preferredAgent !== "local") {
+        if (opts?.clearSelectedKey) {
+          aiPayload[`${preferredAgent}_api_key`] = null;
+        } else if (apiKeyInput.trim()) {
+          aiPayload[`${preferredAgent}_api_key`] = apiKeyInput.trim();
+        }
+      }
+      return updateSettings({ preferences_json: { ai: aiPayload } });
+    },
+    onSuccess: async () => {
+      setApiKeyInput("");
+      await client.invalidateQueries({ queryKey: ["me"] });
+      toast.success(t.common.save);
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed"),
   });
 
   const logoutMutation = useMutation({
@@ -70,457 +156,299 @@ function AccountProfileSection({ user }: { user: User }) {
     },
   });
 
-  function handleSaveProfile(event: FormEvent) {
-    event.preventDefault();
+  async function handleAvatarChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploadingAvatar(true);
+    try {
+      const uploaded = await uploadUserFile(file, "avatars");
+      setAvatarFileId(uploaded.id);
+      await updateMyProfile({ avatar_file_id: uploaded.id });
+      await client.invalidateQueries({ queryKey: ["me"] });
+      toast.success(t.account.changeAvatar);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
+
+  function handleSaveProfile(e: FormEvent) {
+    e.preventDefault();
     const uErr = validateUsername(username);
     const eErr = validateEmail(email);
     const pErr = validatePhone(phone);
-    if (uErr) {
-      toast.error(uErr);
-      return;
-    }
-    if (eErr) {
-      toast.error(eErr);
-      return;
-    }
-    if (pErr) {
-      toast.error(pErr);
+    if (uErr || eErr || pErr) {
+      toast.error(uErr ?? eErr ?? pErr ?? "Invalid input");
       return;
     }
     if (!email.trim() && !phone.trim()) {
-      toast.error("Tài khoản phải giữ ít nhất Email hoặc Số điện thoại.");
+      toast.error("Cần ít nhất Email hoặc Số điện thoại.");
       return;
     }
     saveProfile.mutate();
   }
 
+  function handlePasswordSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      toast.error("Mật khẩu xác nhận không khớp.");
+      return;
+    }
+    savePassword.mutate();
+  }
+
+  const avatarSrc = avatarFileId
+    ? resolveMediaUrl(`/api/v1/storage/files/${avatarFileId}/stream`)
+    : null;
+  const initials = (user.display_name || user.username || "U").slice(0, 2).toUpperCase();
+
+  const keyPlaceholder =
+    preferredAgent === "local"
+      ? locale === "en"
+        ? "System AI Local — no API key required"
+        : "AI Local hệ thống — không cần API Key"
+      : hasSavedUserKey
+        ? `${savedKeyHint || "••••"} (${locale === "en" ? "Saved" : "Đã lưu"})`
+        : activeAgentMeta.server_configured
+          ? locale === "en"
+            ? "Server default key configured (optional override)"
+            : "Đã cấu hình sẵn ở hệ thống (nhập nếu muốn ghi đè)"
+          : preferredAgent === "claude"
+            ? "sk-ant-..."
+            : preferredAgent === "codex"
+              ? "sk-..."
+              : "AIza...";
+
   return (
-    <section className="rounded-xl border border-border bg-card p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-sm font-semibold">Tài khoản & Bảo mật phiên</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Vai trò hiện tại: <span className="font-semibold text-foreground">{user.role}</span>
-            {user.role === "ADMIN" && (
-              <>
-                {" · "}
-                <Link href="/admin/users" className="font-medium text-primary hover:underline">
-                  Mở trang quản lý Users
-                </Link>
-              </>
-            )}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => logoutMutation.mutate()}
-          disabled={logoutMutation.isPending}
-          className="min-h-9 rounded-lg border border-border px-3 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
-        >
-          Đăng xuất
-        </button>
-      </div>
+    <div className="w-full space-y-9">
+      <h1 className="sr-only">{t.nav.settings}</h1>
 
-      <form onSubmit={handleSaveProfile} className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="grid gap-1 text-xs font-medium">
-          Tên tài khoản
-          <input
-            maxLength={50}
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="Tên tài khoản"
-            className="min-h-10 rounded-lg border border-border bg-background px-3 text-sm font-normal"
-          />
-        </label>
-        <label className="grid gap-1 text-xs font-medium">
-          Tên hiển thị
-          <input
-            required
-            maxLength={120}
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            className="min-h-10 rounded-lg border border-border bg-background px-3 text-sm font-normal"
-          />
-        </label>
-        <label className="grid gap-1 text-xs font-medium">
-          Email
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email"
-            className="min-h-10 rounded-lg border border-border bg-background px-3 text-sm font-normal"
-          />
-        </label>
-        <label className="grid gap-1 text-xs font-medium">
-          Số điện thoại
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="Số điện thoại"
-            className="min-h-10 rounded-lg border border-border bg-background px-3 text-sm font-normal"
-          />
-        </label>
-        <div className="flex justify-end sm:col-span-2 lg:col-span-4">
-          <button
-            type="submit"
-            disabled={saveProfile.isPending || !displayName.trim()}
-            className="min-h-10 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-50"
-          >
-            {saveProfile.isPending ? "Đang lưu…" : "Lưu hồ sơ"}
-          </button>
-        </div>
-      </form>
-
-      <div className="mt-6 border-t border-border pt-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Phiên đăng nhập đang hoạt động
-        </h3>
-        {sessionsQuery.isLoading ? (
-          <p className="mt-2 text-xs text-muted-foreground">Đang tải danh sách phiên…</p>
-        ) : (
-          <div className="mt-3 space-y-2">
-            {sessionsQuery.data?.map((item) => (
-              <div
-                key={item.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-xs"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium text-foreground">
-                    {item.device_label || "Trình duyệt Web"}{" "}
-                    {item.is_current && (
-                      <span className="ml-1 rounded bg-accent px-1.5 py-0.5 text-[10px] text-accent-foreground">
-                        Phiên hiện tại
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-muted-foreground">
-                    Cấp lúc: {new Date(item.issued_at).toLocaleString("vi-VN")}
-                  </p>
-                </div>
-                {!item.is_current && (
-                  <button
-                    type="button"
-                    disabled={revokeMutation.isPending}
-                    onClick={() => revokeMutation.mutate(item.id)}
-                    className="min-h-8 rounded-md border border-border px-2.5 text-xs text-destructive hover:bg-destructive/10 disabled:opacity-50"
-                  >
-                    Thu hồi
-                  </button>
-                )}
+      {/* 1. Account Profile & Security (Enlarged balanced Avatar on left, Form on right) */}
+      <section className="grid items-center gap-6 lg:grid-cols-[13.5rem_1fr]">
+        <div className="flex flex-col items-center gap-3.5 text-center">
+          <div className="relative h-32 w-32 overflow-hidden rounded-full border-2 border-border bg-accent text-accent-foreground shadow-sm sm:h-36 sm:w-36">
+            {avatarSrc ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={avatarSrc} alt={user.display_name} className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-3xl font-semibold">
+                {initials}
               </div>
-            ))}
+            )}
           </div>
-        )}
-      </div>
-    </section>
-  );
-}
+          <div className="space-y-2">
+            <div className="flex items-center justify-center gap-2">
+              <p className="text-base font-semibold text-foreground">{user.display_name}</p>
+              <span className="rounded bg-secondary px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                {user.role}
+              </span>
+            </div>
+            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium hover:bg-secondary">
+              <Camera className="h-3.5 w-3.5 text-primary" />
+              <span>{uploadingAvatar ? t.common.loading : t.account.changeAvatar}</span>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={handleAvatarChange}
+                className="hidden"
+              />
+            </label>
+          </div>
+        </div>
 
-function CategorySettings() {
-  const client = useQueryClient();
-  const categories = useQuery({ queryKey: ["categories"], queryFn: fetchCategories });
-  const [name, setName] = useState("");
-  const [accent, setAccent] = useState<AccentToken>("SKY");
-  const add = useMutation({
-    mutationFn: () => createCategory({ name: name.trim(), accent_token: accent }),
-    onSuccess: async () => {
-      setName("");
-      await client.invalidateQueries({ queryKey: ["categories"] });
-      toast.success("Đã tạo danh mục.");
-    },
-    onError: (error) =>
-      toast.error(error instanceof Error ? error.message : "Không tạo được danh mục."),
-  });
-  const update = useMutation({
-    mutationFn: ({
-      item,
-      payload,
-    }: {
-      item: Category;
-      payload: { name?: string; accent_token?: AccentToken; archived?: boolean };
-    }) => updateCategory(item.id, payload),
-    onSuccess: async () => {
-      await client.invalidateQueries({ queryKey: ["categories"] });
-      toast.success("Đã cập nhật danh mục.");
-    },
-    onError: (error) =>
-      toast.error(error instanceof Error ? error.message : "Không cập nhật được danh mục."),
-  });
-  return (
-    <section className="rounded-xl border border-border bg-card p-5">
-      <h2 className="text-sm font-semibold">Danh mục</h2>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Màu được dùng nhất quán cho task và project.
-      </p>
-      {categories.isLoading ? (
-        <p className="mt-4 text-sm text-muted-foreground" aria-busy="true">
-          Đang tải…
-        </p>
-      ) : categories.isError ? (
-        <p className="mt-4 text-sm text-destructive">
-          Không tải được danh mục.{" "}
-          <button type="button" onClick={() => void categories.refetch()} className="underline">
-            Thử lại
-          </button>
-        </p>
-      ) : (
-        <div className="mt-4 space-y-2">
-          {categories.data?.map((item) => (
-            <div
-              key={item.id}
-              className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-3 text-sm"
-            >
-              <span className="min-w-0 flex-1 font-medium">{item.name}</span>
-              <select
-                aria-label={`Màu của ${item.name}`}
-                value={item.accent_token}
-                onChange={(event) =>
-                  update.mutate({
-                    item,
-                    payload: { accent_token: event.target.value as AccentToken },
-                  })
-                }
-                className="min-h-9 rounded-md border border-border bg-background px-2 text-xs"
+        <div className="space-y-5">
+          <form onSubmit={handleSaveProfile} className="grid gap-4 sm:grid-cols-2">
+            <label className="grid gap-1 text-xs font-medium">
+              {t.account.displayName}
+              <input
+                required
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
+              />
+            </label>
+            <label className="grid gap-1 text-xs font-medium">
+              {t.account.username}
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
+              />
+            </label>
+            <label className="grid gap-1 text-xs font-medium">
+              {t.account.email}
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
+              />
+            </label>
+            <label className="grid gap-1 text-xs font-medium">
+              {t.account.phone}
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
+              />
+            </label>
+            <div className="flex flex-wrap items-center justify-between gap-3 sm:col-span-2">
+              <button
+                type="button"
+                onClick={() => setShowPasswordForm((p) => !p)}
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-xs font-medium text-foreground hover:bg-secondary"
               >
-                {ACCENTS.map((color) => (
-                  <option key={color} value={color}>
-                    {color}
+                <KeyRound className="h-3.5 w-3.5 text-primary" />
+                <span>{t.account.changePassword}</span>
+              </button>
+              <button
+                type="submit"
+                disabled={saveProfile.isPending}
+                className="h-9 rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground disabled:opacity-50"
+              >
+                {saveProfile.isPending ? t.common.loading : t.account.saveProfile}
+              </button>
+            </div>
+          </form>
+
+          {showPasswordForm && (
+            <form
+              onSubmit={handlePasswordSubmit}
+              className="grid gap-3 border-t border-border/70 pt-4 sm:grid-cols-3"
+            >
+              <PasswordInput
+                required
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder={t.account.currentPassword}
+                className="h-10 text-xs"
+              />
+              <PasswordInput
+                required
+                minLength={8}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder={t.account.newPassword}
+                className="h-10 text-xs"
+              />
+              <PasswordInput
+                required
+                minLength={8}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder={t.account.confirmPassword}
+                className="h-10 text-xs"
+              />
+              <div className="flex justify-end sm:col-span-3">
+                <button
+                  type="submit"
+                  disabled={savePassword.isPending}
+                  className="h-9 rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground"
+                >
+                  {t.account.updatePassword}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </section>
+
+      {/* 2. AI Agent (2 Boxes full-width; Language & Theme removed as they live in Topbar) */}
+      <section className="border-t border-border/70 pt-7">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            saveAiSettings.mutate({});
+          }}
+          className="space-y-4"
+        >
+          <div className="flex items-center gap-2">
+            <Bot className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-semibold text-foreground">AI Agent</h2>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* Box 1: Agent Selector Dropdown */}
+            <label className="grid gap-1.5 text-xs font-medium text-foreground">
+              <span>{locale === "en" ? "Select Agent" : "Chọn Agent"}</span>
+              <select
+                aria-label={locale === "en" ? "Select Agent" : "Chọn Agent"}
+                value={preferredAgent}
+                onChange={(e) => {
+                  setPreferredAgent(e.target.value as AgentChoice);
+                  setApiKeyInput("");
+                }}
+                className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal outline-none focus:border-primary"
+              >
+                {agentOptions.map((agent) => (
+                  <option key={agent.id} value={agent.id}>
+                    {agent.label} — {agent.model_id}
                   </option>
                 ))}
               </select>
-              <button
-                type="button"
-                disabled={update.isPending}
-                onClick={() => {
-                  const value = window.prompt("Tên danh mục", item.name)?.trim();
-                  if (value && value !== item.name)
-                    update.mutate({ item, payload: { name: value } });
-                }}
-                className="min-h-9 rounded-md px-2 text-xs hover:bg-secondary"
-              >
-                Đổi tên
-              </button>
-              <button
-                type="button"
-                disabled={update.isPending}
-                onClick={() => {
-                  if (window.confirm(`Lưu trữ danh mục “${item.name}”?`))
-                    update.mutate({ item, payload: { archived: true } });
-                }}
-                className="min-h-9 rounded-md px-2 text-xs text-muted-foreground hover:bg-secondary"
-              >
-                Lưu trữ
-              </button>
+            </label>
+
+            {/* Box 2: API Key Input */}
+            <div className="grid gap-1.5 text-xs font-medium text-foreground">
+              <div className="flex items-center justify-between">
+                <span>API Key</span>
+                {hasSavedUserKey && (
+                  <button
+                    type="button"
+                    onClick={() => saveAiSettings.mutate({ clearSelectedKey: true })}
+                    className="text-[11px] font-medium text-destructive hover:underline"
+                  >
+                    {locale === "en" ? "Clear" : "Xóa key"}
+                  </button>
+                )}
+              </div>
+              <PasswordInput
+                value={apiKeyInput}
+                disabled={preferredAgent === "local"}
+                onChange={(e) => setApiKeyInput(e.target.value)}
+                placeholder={keyPlaceholder}
+                className="h-10 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+              />
             </div>
-          ))}
-        </div>
-      )}
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          add.mutate();
-        }}
-        className="mt-4 flex flex-wrap gap-2"
-      >
-        <input
-          aria-label="Tên danh mục mới"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          maxLength={80}
-          placeholder="Tên danh mục"
-          className="min-h-10 min-w-40 flex-1 rounded-lg border border-border bg-background px-3 text-sm"
-        />
-        <select
-          aria-label="Màu danh mục mới"
-          value={accent}
-          onChange={(event) => setAccent(event.target.value as AccentToken)}
-          className="min-h-10 rounded-lg border border-border bg-background px-2 text-sm"
-        >
-          {ACCENTS.map((color) => (
-            <option key={color} value={color}>
-              {color}
-            </option>
-          ))}
-        </select>
-        <button
-          type="submit"
-          disabled={!name.trim() || add.isPending}
-          className="min-h-10 rounded-lg bg-primary px-4 text-sm text-primary-foreground disabled:opacity-50"
-        >
-          Thêm
-        </button>
-      </form>
-    </section>
-  );
-}
+          </div>
 
-function SettingsContent({ user, settings }: { user: User; settings: UserSettings }) {
-  const client = useQueryClient();
-  const [timezone, setTimezone] = useState(settings.timezone);
-  const [weekStarts, setWeekStarts] = useState(settings.week_starts_on);
-  const [workStart, setWorkStart] = useState(
-    typeof settings.working_hours_json?.start === "string" ? settings.working_hours_json.start : ""
-  );
-  const [workEnd, setWorkEnd] = useState(
-    typeof settings.working_hours_json?.end === "string" ? settings.working_hours_json.end : ""
-  );
-  const save = useMutation({
-    mutationFn: () =>
-      updateSettings({
-        timezone: timezone.trim(),
-        week_starts_on: weekStarts,
-        working_hours_json: workStart && workEnd ? { start: workStart, end: workEnd } : null,
-      }),
-    onSuccess: async () => {
-      await client.invalidateQueries({ queryKey: ["me"] });
-      await client.invalidateQueries({ queryKey: ["planning-period"] });
-      await client.invalidateQueries({ queryKey: ["calendar-events"] });
-      toast.success("Đã lưu cài đặt.");
-    },
-    onError: (error) =>
-      toast.error(error instanceof Error ? error.message : "Không lưu được cài đặt."),
-  });
-  const validTimezone = (() => {
-    try {
-      new Intl.DateTimeFormat("en", { timeZone: timezone });
-      return true;
-    } catch {
-      return false;
-    }
-  })();
-  const validHours =
-    (!workStart && !workEnd) || (Boolean(workStart && workEnd) && workStart < workEnd);
-
-  return (
-    <div className="space-y-5">
-      <header>
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Settings</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">Cài đặt</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Tài khoản, giao diện sáng/tối, múi giờ và danh mục.
-        </p>
-      </header>
-      <AccountProfileSection user={user} />
-      <section className="rounded-xl border border-border bg-card p-5">
-        <h2 className="text-sm font-semibold">Giao diện</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Theme Sáng / Tối được lưu vào tài khoản và đồng bộ giữa các thiết bị.
-        </p>
-        <div className="mt-3">
-          <ThemeSwitcher />
-        </div>
-      </section>
-      <section className="rounded-xl border border-border bg-card p-5">
-        <h2 className="text-sm font-semibold">Thời gian & lịch</h2>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            save.mutate();
-          }}
-          className="mt-4 grid gap-4 sm:grid-cols-2"
-        >
-          <label className="grid gap-1 text-xs font-medium">
-            Múi giờ IANA
-            <input
-              required
-              value={timezone}
-              onChange={(event) => setTimezone(event.target.value)}
-              placeholder="Asia/Ho_Chi_Minh"
-              className="min-h-10 rounded-lg border border-border bg-background px-3 text-sm font-normal"
-            />
-            {!validTimezone && <span className="text-destructive">Múi giờ không hợp lệ.</span>}
-          </label>
-          <label className="grid gap-1 text-xs font-medium">
-            Ngày đầu tuần
-            <select
-              value={weekStarts}
-              onChange={(event) => setWeekStarts(Number(event.target.value))}
-              className="min-h-10 rounded-lg border border-border bg-background px-3 text-sm font-normal"
-            >
-              {[1, 2, 3, 4, 5, 6, 7].map((day) => (
-                <option key={day} value={day}>
-                  {
-                    [
-                      "",
-                      "Thứ Hai",
-                      "Thứ Ba",
-                      "Thứ Tư",
-                      "Thứ Năm",
-                      "Thứ Sáu",
-                      "Thứ Bảy",
-                      "Chủ Nhật",
-                    ][day]
-                  }
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="grid gap-1 text-xs font-medium">
-            Bắt đầu làm việc
-            <input
-              type="time"
-              value={workStart}
-              onChange={(event) => setWorkStart(event.target.value)}
-              className="min-h-10 rounded-lg border border-border bg-background px-3 text-sm font-normal"
-            />
-          </label>
-          <label className="grid gap-1 text-xs font-medium">
-            Kết thúc làm việc
-            <input
-              type="time"
-              value={workEnd}
-              onChange={(event) => setWorkEnd(event.target.value)}
-              className="min-h-10 rounded-lg border border-border bg-background px-3 text-sm font-normal"
-            />
-            {!validHours && (
-              <span className="text-destructive">
-                Giờ kết thúc phải sau giờ bắt đầu, hoặc để trống cả hai.
-              </span>
-            )}
-          </label>
-          <div className="flex justify-end sm:col-span-2">
+          <div className="flex justify-end">
             <button
               type="submit"
-              disabled={!validTimezone || !validHours || save.isPending}
-              className="min-h-10 rounded-lg bg-primary px-4 text-sm text-primary-foreground disabled:opacity-50"
+              disabled={saveAiSettings.isPending}
+              className="h-9 rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground disabled:opacity-50"
             >
-              {save.isPending ? "Đang lưu…" : "Lưu cài đặt"}
+              {saveAiSettings.isPending ? t.common.loading : t.common.save}
             </button>
           </div>
         </form>
       </section>
-      <CategorySettings />
+
+      {/* 3. Sign out (Last, Left-aligned) */}
+      <div className="flex justify-start border-t border-border/70 pt-5">
+        <button
+          type="button"
+          onClick={() => logoutMutation.mutate()}
+          disabled={logoutMutation.isPending}
+          className="inline-flex h-10 items-center gap-2 rounded-lg border border-destructive/40 bg-background px-4 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+        >
+          <LogOut className="h-4 w-4" />
+          <span>{t.account.logout}</span>
+        </button>
+      </div>
     </div>
   );
 }
 
 export default function SettingsPage() {
-  const user = useQuery({ queryKey: ["me"], queryFn: fetchCurrentUser, retry: false });
-  if (user.error instanceof ApiClientError && user.error.status === 401)
-    return (
-      <section className="rounded-xl border border-border bg-card p-6">
-        <h1 className="text-xl font-semibold">Settings</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Đăng nhập để cập nhật cài đặt.</p>
-        <Link
-          href="/login"
-          className="mt-4 inline-flex rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground"
-        >
-          Đăng nhập
-        </Link>
-      </section>
-    );
-  if (user.isLoading)
-    return <div className="h-40 animate-pulse rounded-xl bg-card" aria-busy="true" />;
-  if (user.isError || !user.data?.settings)
-    return (
-      <p className="rounded-xl border border-destructive/30 bg-card p-5 text-sm text-destructive">
-        Không tải được cài đặt.{" "}
-        <button type="button" onClick={() => void user.refetch()} className="underline">
-          Thử lại
-        </button>
-      </p>
-    );
-  return <SettingsContent user={user.data} settings={user.data.settings} />;
+  const { t } = useI18n();
+  const meQuery = useQuery({ queryKey: ["me"], queryFn: fetchCurrentUser });
+
+  if (meQuery.isLoading || !meQuery.data || !meQuery.data.settings) {
+    return <p className="text-sm text-muted-foreground">{t.common.loading}</p>;
+  }
+
+  return <SettingsBody user={meQuery.data} settings={meQuery.data.settings} />;
 }

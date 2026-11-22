@@ -1,0 +1,16 @@
+[project]
+name = "personal-productivity-ocr"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "pillow>=11.0",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    "pyjwt>=2.10",
+    "python-multipart>=0.0.20",
+    "uvicorn[standard]>=0.34",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3", "ruff>=0.9"]

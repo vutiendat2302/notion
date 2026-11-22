@@ -29,9 +29,7 @@ class AuthSessionRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def list_active_by_user_id(
-        self, user_id: UUID, now: datetime
-    ) -> list[AuthSession]:
+    async def list_active_by_user_id(self, user_id: UUID, now: datetime) -> list[AuthSession]:
         stmt = (
             select(AuthSession)
             .where(

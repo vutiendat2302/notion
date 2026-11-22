@@ -20,7 +20,8 @@ from app.core.exceptions import (
 )
 from app.core.logging import configure_logging, request_id_ctx
 from app.db.engine import AsyncSessionLocal, engine
-from app.modules.auth.services.admin_seed_service import ensure_default_admin
+from app.modules.auth.services.admin_seed_service import ensure_default_accounts
+from app.modules.internal_tools.api.tools_router import router as internal_tools_router
 
 _SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 _CSRF_EXEMPT_PATHS = {
@@ -50,7 +51,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     configure_logging(settings.log_level)
     if settings.app_env != "test":
         async with AsyncSessionLocal() as session:
-            await ensure_default_admin(session)
+            await ensure_default_accounts(session)
     yield
     await engine.dispose()
 
@@ -78,9 +79,7 @@ def create_app() -> FastAPI:
     ) -> Response:
         # 1. Origin + CSRF protection for browser cookie-authenticated mutations
         if request.method not in _SAFE_METHODS:
-            has_bearer = (
-                request.headers.get("Authorization", "").lower().startswith("bearer ")
-            )
+            has_bearer = request.headers.get("Authorization", "").lower().startswith("bearer ")
             if not has_bearer:
                 request_origin = _extract_origin(request)
                 allowed_origins = {o.rstrip("/") for o in settings.cors_origins_list}
@@ -156,6 +155,7 @@ def create_app() -> FastAPI:
             )
 
     app.include_router(api_v1_router)
+    app.include_router(internal_tools_router)
     return app
 
 

@@ -1,11 +1,18 @@
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import ConflictError, NotFoundError, ValidationAppError
-from app.core.security import hash_password
+from app.core.exceptions import (
+    ConflictError,
+    NotFoundError,
+    UnauthorizedError,
+    ValidationAppError,
+)
+from app.core.security import hash_password, verify_password
 from app.db.base import utc_now
+from app.db.extended_models import FileRecord
 from app.modules.auth.models.auth_session import AuthSession
 from app.modules.auth.repositories.auth_session_repository import AuthSessionRepository
 from app.modules.auth.services.auth_service import create_user_with_defaults
@@ -17,6 +24,7 @@ from app.modules.users.schemas.requests.user_requests import (
     AdminUserPatchRequest,
     UserMePatchRequest,
 )
+from app.shared.audit import record_event
 from app.shared.contacts import normalize_email, normalize_phone, normalize_username
 
 
@@ -42,10 +50,39 @@ class UserService:
             email=payload.email,
             phone=payload.phone,
         )
+        if "avatar_file_id" in payload.model_fields_set:
+            if payload.avatar_file_id is not None:
+                stmt = select(FileRecord).where(
+                    FileRecord.id == payload.avatar_file_id,  # type: ignore[arg-type]
+                    FileRecord.user_id == user.id,  # type: ignore[arg-type]
+                    FileRecord.status == "READY",  # type: ignore[arg-type]
+                )
+                row = (await self.session.execute(stmt)).scalar_one_or_none()
+                if row is None:
+                    raise NotFoundError("Avatar file not found.", code="FILE_NOT_FOUND")
+            user.avatar_file_id = payload.avatar_file_id
+
         await self._commit_user_safely()
         loaded = await self.repo.get_by_id(user.id)
         assert loaded is not None
         return loaded
+
+    async def change_my_password(
+        self,
+        user_id: UUID,
+        *,
+        current_password: str,
+        new_password: str,
+    ) -> None:
+        user = await self.get_profile(user_id)
+        if not verify_password(current_password, user.password_hash):
+            raise UnauthorizedError(
+                "Mật khẩu hiện tại không chính xác.",
+                code="INVALID_CURRENT_PASSWORD",
+            )
+        user.password_hash = hash_password(new_password)
+        record_event(self.session, user.id, "USER", user.id, "PASSWORD_CHANGED")
+        await self.session.commit()
 
     async def patch_settings(
         self, user_id: UUID, payload: UserSettingsPatchRequest
@@ -60,7 +97,28 @@ class UserService:
             value = getattr(payload, field_name)
             if field_name in non_nullable_fields and value is None:
                 raise ValidationAppError(f"Field '{field_name}' cannot be null.")
-            setattr(settings, field_name, value)
+            if field_name == "preferences_json":
+                if value is None:
+                    settings.preferences_json = None
+                else:
+                    merged = dict(settings.preferences_json or {})
+                    for k, v in value.items():
+                        if k == "ai" and isinstance(v, dict):
+                            existing_ai = dict(merged.get("ai") or {})
+                            for ak, av in v.items():
+                                if ak.endswith("_api_key"):
+                                    if av is None:
+                                        existing_ai.pop(ak, None)
+                                    elif isinstance(av, str) and av.strip():
+                                        existing_ai[ak] = av.strip()
+                                else:
+                                    existing_ai[ak] = av
+                            merged["ai"] = existing_ai
+                        else:
+                            merged[k] = v
+                    settings.preferences_json = merged
+            else:
+                setattr(settings, field_name, value)
 
         await self.session.commit()
         await self.session.refresh(settings)
@@ -149,11 +207,23 @@ class UserService:
 
         user.role = new_role
         user.status = new_status
+        password_reset = False
         if "password" in fields_set and payload.password:
             user.password_hash = hash_password(payload.password)
+            password_reset = True
 
-        if user.status != "ACTIVE":
+        if user.status != "ACTIVE" or password_reset:
             await self.session_repo.revoke_all_for_user(user.id, utc_now())
+
+        if password_reset:
+            record_event(
+                self.session,
+                user.id,
+                "USER",
+                user.id,
+                "ADMIN_PASSWORD_RESET",
+                {"actor_id": str(actor_id), "revoked_sessions": True},
+            )
 
         await self._commit_user_safely()
         loaded = await self.repo.get_by_id(user.id)

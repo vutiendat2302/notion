@@ -3,7 +3,11 @@ from httpx import AsyncClient
 from sqlalchemy import select
 
 from app.core.security import verify_password
-from app.modules.auth.services.admin_seed_service import ensure_default_admin
+from app.db.extended_models import ActivityEvent
+from app.modules.auth.services.admin_seed_service import (
+    ensure_default_accounts,
+    ensure_default_admin,
+)
 from app.modules.users.models.user import User
 from tests.conftest import TransactionalProxySession
 
@@ -16,15 +20,23 @@ async def test_admin_seed_idempotent(db_proxy_session: TransactionalProxySession
     assert admin1.username == "admin"
     assert verify_password("dat123456", admin1.password_hash)
 
-    admin2 = await ensure_default_admin(db_proxy_session)  # type: ignore[arg-type]
+    admin2, user2 = await ensure_default_accounts(db_proxy_session)  # type: ignore[arg-type]
     assert admin2 is not None
     assert admin2.id == admin1.id
+    assert user2 is not None
+    assert user2.role == "USER"
+    assert user2.username == "user"
+    assert verify_password("dat123456", user2.password_hash)
 
     rows = (
-        await db_proxy_session.execute(
-            select(User).where(User.email_normalized == "admin@dat.local")
+        (
+            await db_proxy_session.execute(
+                select(User).where(User.email_normalized == "admin@dat.local")
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(rows) == 1
 
 
@@ -264,6 +276,47 @@ async def test_user_me_sessions_and_admin_crud_rbac(
         json={"identifier": "created@example.com", "password": "StrongPassword123"},
     )
     assert disabled_login.status_code == 403
+
+    # Admin password reset revokes target active sessions & records audit log
+    from uuid import UUID
+
+    reset_resp = await client.patch(
+        f"/api/v1/admin/users/{reg_user.json()['user']['id']}",
+        headers=admin_headers,
+        json={"password": "NewAdminResetPass123"},
+    )
+    assert reset_resp.status_code == 200
+    sessions_after_reset = await client.get("/api/v1/users/me/sessions", headers=user_headers)
+    assert sessions_after_reset.status_code == 200
+    assert len(sessions_after_reset.json()) == 0
+    audit_rows = (
+        await db_proxy_session.execute(
+            select(ActivityEvent).where(
+                ActivityEvent.entity_id == UUID(reg_user.json()["user"]["id"]),  # type: ignore[arg-type]
+                ActivityEvent.event_type == "ADMIN_PASSWORD_RESET",  # type: ignore[arg-type]
+            )
+        )
+    ).fetchall()
+    assert len(audit_rows) == 1
+
+    # Self-service change-password
+    relogin_user = await client.post(
+        "/api/v1/auth/login",
+        json={"identifier": "normal@example.com", "password": "NewAdminResetPass123"},
+    )
+    assert relogin_user.status_code == 200
+    new_user_headers = {"Authorization": f"Bearer {relogin_user.json()['access_token']}"}
+    chg = await client.post(
+        "/api/v1/users/me/change-password",
+        headers=new_user_headers,
+        json={
+            "current_password": "NewAdminResetPass123",
+            "new_password": "UserUpdatedPass456",
+            "confirm_password": "UserUpdatedPass456",
+        },
+    )
+    assert chg.status_code == 200
+    assert chg.json()["updated"] is True
 
     # Admin cannot disable self
     self_disable = await client.delete(

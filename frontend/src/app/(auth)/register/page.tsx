@@ -6,6 +6,7 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { BrandLogo } from "@/components/layout/brand-logo";
+import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { ThemeSwitcher } from "@/components/layout/theme-switcher";
 import { PasswordInput } from "@/components/ui/password-input";
 import { registerAccount } from "@/features/users/api";
@@ -104,7 +105,10 @@ export default function RegisterPage() {
     <main className="relative flex min-h-screen flex-col justify-between bg-background px-4 py-6 sm:px-6">
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between">
         <BrandLogo variant="full" />
-        <ThemeSwitcher />
+        <div className="flex items-center gap-2">
+          <LanguageSwitcher />
+          <ThemeSwitcher />
+        </div>
       </header>
 
       <section className="mx-auto my-auto flex w-full max-w-[440px] flex-col py-6">

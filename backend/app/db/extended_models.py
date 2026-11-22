@@ -339,6 +339,43 @@ automation_rules = owned_table(
     updated=True,
 )
 
+block_templates = Table(
+    "block_templates",
+    Base.metadata,
+    Column("id", UUIDBinary16(), primary_key=True, default=new_uuid7),
+    Column("slug", String(80), nullable=False),
+    Column("category", String(24), nullable=False),
+    Column("name_vi", String(120), nullable=False),
+    Column("name_en", String(120), nullable=False),
+    Column("description_vi", String(255), nullable=False, server_default=text("''")),
+    Column("description_en", String(255), nullable=False, server_default=text("''")),
+    Column("icon_name", String(48), nullable=False, server_default=text("'Sparkles'")),
+    Column("widget_kind", String(24), nullable=False),
+    Column("default_title", String(200), nullable=False),
+    Column("default_width", Integer(), nullable=False, server_default=text("6")),
+    Column("default_height", Integer(), nullable=False, server_default=text("3")),
+    Column("default_spec_json", JSON(), nullable=False),
+    Column("is_active", Boolean(), nullable=False, server_default=text("1")),
+    Column("is_user_customizable", Boolean(), nullable=False, server_default=text("1")),
+    Column("sort_order", Integer(), nullable=False, server_default=text("0")),
+    Column("created_at", UTCDateTime(), nullable=False, default=utc_now),
+    Column("updated_at", UTCDateTime(), nullable=False, default=utc_now, onupdate=utc_now),
+    CheckConstraint(
+        "category IN ('TEXT_FORMAT','PRODUCTIVITY','FORM_TABLE','CHART')",
+        name="category",
+    ),
+    CheckConstraint(
+        "widget_kind IN ('METRIC_CARD','CHART','HEATMAP','PROGRESS','TASK_LIST')",
+        name="widget_kind",
+    ),
+    CheckConstraint(
+        "default_width > 0 AND default_width <= 12 AND default_height > 0 AND default_height <= 12",
+        name="bounds",
+    ),
+    UniqueConstraint("slug", name="uq_block_templates_slug"),
+    Index("ix_block_templates_category_sort", "category", "sort_order"),
+)
+
 
 class Habit(Base):
     __table__ = habits
@@ -406,3 +443,7 @@ class Template(Base):
 
 class AutomationRule(Base):
     __table__ = automation_rules
+
+
+class BlockTemplate(Base):
+    __table__ = block_templates

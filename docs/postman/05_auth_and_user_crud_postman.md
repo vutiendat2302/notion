@@ -12,7 +12,7 @@
 
 | Biến | Giá trị mặc định (Dev) | Ghi chú |
 |---|---|---|
-| `host_url` | `http://127.0.0.1:8010` | Đổi sang `https://notion.vtdat.com` nếu muốn test bản Prod |
+| `host_url` | `http://127.0.0.1:8010` | Đổi sang `https://lumiplan.vtdat.com` nếu muốn test bản Prod |
 | `base_url` | `{{host_url}}/api/v1` | URL gốc cho toàn bộ API v1 |
 | `admin_username` | `admin` | Tên tài khoản Admin mặc định |
 | `admin_email` | `admin@dat.local` | Email Admin mặc định khởi tạo khi Backend chạy |

@@ -14,7 +14,7 @@ export function BrandLogo({ variant = "full", className }: BrandLogoProps) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/logo/logo_mark_light.png"
-          alt="dat logo"
+          alt="LumiPlan"
           width={28}
           height={28}
           className="block h-7 w-7 object-contain dark:hidden"
@@ -22,7 +22,7 @@ export function BrandLogo({ variant = "full", className }: BrandLogoProps) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/logo/logo_mark_dark.png"
-          alt="dat logo"
+          alt="LumiPlan"
           width={28}
           height={28}
           className="hidden h-7 w-7 object-contain dark:block"
@@ -36,13 +36,13 @@ export function BrandLogo({ variant = "full", className }: BrandLogoProps) {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/logo/logo_text_ngang_full.png"
-        alt="dat"
+        alt="LumiPlan"
         className="block h-8 w-auto max-w-[132px] object-contain dark:hidden"
       />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/logo/logo_text_nang_den_full.png"
-        alt="dat"
+        alt="LumiPlan"
         className="hidden h-8 w-auto max-w-[132px] object-contain dark:block"
       />
     </span>

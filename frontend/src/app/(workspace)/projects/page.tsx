@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { DynamicChartCard } from "@/features/analytics/chart-renderer";
 import { createProject, updateProject, type ProjectInput } from "@/features/projects/api";
 import { fetchCategories, fetchOccurrences, fetchProjects } from "@/features/tasks/api";
 import { fetchCurrentUser } from "@/features/users/api";
@@ -50,7 +51,18 @@ function ProjectDetail({ project, onEdit, onArchived }: { project: Project; onEd
     {occurrences.data && occurrences.data.pagination.total > items.length && <p className="mt-3 text-xs text-muted-foreground">Hiển thị {items.length}/{occurrences.data.pagination.total} lần thực hiện. Mở Tasks để xem đầy đủ.</p>}
     {occurrences.isError && <p className="mt-3 text-sm text-destructive">Không tải được task. <button type="button" onClick={() => void occurrences.refetch()} className="underline">Thử lại</button></p>}
     <div className="mt-5 border-t border-border pt-4"><div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Lần thực hiện</h3><Link href={`/tasks?scope=all&project_id=${project.id}`} className="text-xs font-medium text-primary underline">Mở Tasks</Link></div>{items.length === 0 && !occurrences.isLoading ? <p className="mt-3 text-sm text-muted-foreground">Chưa có task thuộc project.</p> : <div className="mt-3 space-y-2">{items.slice(0, 20).map((item) => <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-sm"><span className="truncate">{item.task.title}</span><span className="shrink-0 text-xs text-muted-foreground">{item.status === "DONE" ? "Đã xong" : item.scheduled_date ?? "Chưa xếp lịch"}</span></div>)}</div>}</div>
-    <p className="mt-4 text-xs text-muted-foreground">Tiến độ dựa trên lần thực hiện đã xong / lần hợp lệ đang hiển thị. Thời gian thực tế sẽ có sau khi Time Tracking API hoạt động.</p>
+    <div className="mt-5 grid gap-4 border-t border-border pt-4 lg:grid-cols-2">
+      <DynamicChartCard
+        chartKey="project_progress"
+        title="Tiến độ Project"
+        filters={{ project_id: project.id }}
+      />
+      <DynamicChartCard
+        chartKey="project_cumulative_work"
+        title="Thời gian tích lũy"
+        filters={{ project_id: project.id }}
+      />
+    </div>
   </section>;
 }
 
@@ -61,7 +73,7 @@ export default function ProjectsPage() {
   const [editing, setEditing] = useState<Project | null | "new">(null);
   const selected = projects.data?.find((item) => item.id === selectedId) ?? null;
   if (user.error instanceof ApiClientError && user.error.status === 401) return <section className="rounded-xl border border-border bg-card p-6"><h1 className="text-xl font-semibold">Projects</h1><p className="mt-2 text-sm text-muted-foreground">Đăng nhập để quản lý project.</p><Link href="/login" className="mt-4 inline-flex rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground">Đăng nhập</Link></section>;
-  return <div className="space-y-5"><header className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Projects</p><h1 className="mt-1 text-2xl font-semibold tracking-tight">Dự án của bạn</h1><p className="mt-1 text-sm text-muted-foreground">Nhóm task theo mục tiêu và theo dõi tiến độ thực hiện.</p></div><button type="button" onClick={() => setEditing("new")} className="min-h-10 rounded-lg bg-primary px-4 text-sm text-primary-foreground">Tạo project</button></header>
+  return <div className="space-y-5"><header className="flex flex-wrap items-center justify-end gap-3"><h1 className="sr-only">Projects</h1><button type="button" onClick={() => setEditing("new")} className="min-h-10 rounded-lg bg-primary px-4 text-sm text-primary-foreground">Tạo project</button></header>
     {editing && <ProjectForm key={editing === "new" ? "new" : `${editing.id}-${editing.version}`} project={editing === "new" ? null : editing} onClose={() => setEditing(null)} />}
     {projects.isLoading || user.isLoading ? <div className="h-40 animate-pulse rounded-xl bg-card" aria-busy="true" /> : projects.isError || user.isError ? <p className="rounded-xl border border-destructive/30 bg-card p-5 text-sm text-destructive">Không tải được project. <button type="button" onClick={() => void projects.refetch()} className="underline">Thử lại</button></p> : <div className="grid gap-4 lg:grid-cols-[minmax(14rem,18rem)_minmax(0,1fr)]"><section className="rounded-xl border border-border bg-card p-3"><h2 className="px-2 pb-2 text-sm font-semibold">Danh sách · {projects.data?.length ?? 0}</h2>{projects.data?.length === 0 ? <p className="px-2 py-4 text-sm text-muted-foreground">Chưa có project.</p> : <div className="space-y-1">{projects.data?.map((project) => <button key={project.id} type="button" onClick={() => setSelectedId(project.id)} className={`w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-secondary ${selectedId === project.id ? "bg-accent" : ""}`}><span className="block truncate font-medium">{project.title}</span><span className="text-xs text-muted-foreground">{STATUS_LABELS[project.status]}</span></button>)}</div>}</section>{selected ? <ProjectDetail project={selected} onEdit={() => setEditing(selected)} onArchived={() => setSelectedId(null)} /> : <section className="grid min-h-48 place-items-center rounded-xl border border-dashed border-border bg-card p-6 text-center text-sm text-muted-foreground">Chọn một project để xem chi tiết.</section>}</div>}
   </div>;

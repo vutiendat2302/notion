@@ -67,3 +67,30 @@ def decode_access_token(token: str) -> tuple[UUID, UUID]:
             "Invalid or expired access token.",
             code="INVALID_ACCESS_TOKEN",
         ) from exc
+
+
+def create_s2s_token(*, user_id: UUID, audience: str, ttl_seconds: int = 120) -> str:
+    settings = get_settings()
+    now = datetime.now(UTC)
+    payload = {
+        "sub": str(user_id),
+        "iss": "productivity-backend",
+        "aud": audience,
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(seconds=ttl_seconds)).timestamp()),
+    }
+    return jwt.encode(payload, settings.s2s_signing_secret, algorithm=settings.jwt_algorithm)
+
+
+def decode_s2s_token(token: str, *, expected_audience: str) -> UUID:
+    settings = get_settings()
+    try:
+        payload = jwt.decode(
+            token,
+            settings.s2s_signing_secret,
+            algorithms=[settings.jwt_algorithm],
+            audience=expected_audience,
+        )
+        return UUID(str(payload["sub"]))
+    except (InvalidTokenError, KeyError, ValueError) as exc:
+        raise UnauthorizedError("Invalid S2S service token.", code="INVALID_S2S_TOKEN") from exc

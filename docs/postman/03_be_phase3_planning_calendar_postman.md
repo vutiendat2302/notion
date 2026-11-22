@@ -4,7 +4,7 @@ Use a dedicated test account/database. These requests write saved plans and occu
 
 ## 1 — Postman Environment
 
-Create an environment with `base_url` (for example `https://notion.vtdat.com/api/v1`), `email`, `password`, `access_token`, `refresh_token`, `task_id`, `occurrence_id`, `occurrence_version`, `plan_id`, `plan_item_id`, and `idempotency_key` (`be3-rollover-demo-001`). Keep token and password values in Postman's local environment; do not export them into Git.
+Create an environment with `base_url` (for example `https://lumiplan.vtdat.com/api/v1`), `email`, `password`, `access_token`, `refresh_token`, `task_id`, `occurrence_id`, `occurrence_version`, `plan_id`, `plan_item_id`, and `idempotency_key` (`be3-rollover-demo-001`). Keep token and password values in Postman's local environment; do not export them into Git.
 
 ## 2 — Test Flow
 

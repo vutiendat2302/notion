@@ -68,9 +68,14 @@ export function savePlan(type: PeriodType, key: string, payload: {
   });
 }
 
-export function addPlanItem(planId: string, occurrenceId: string): Promise<PlanItem> {
+export function addPlanItem(
+  planId: string,
+  targetId: string,
+  targetType: "OCCURRENCE" | "TASK" | "PROJECT" | "GOAL" = "OCCURRENCE"
+): Promise<PlanItem> {
   return apiRequest<PlanItem>(`/planning/plans/${planId}/items`, {
-    method: "POST", body: JSON.stringify({ target_type: "OCCURRENCE", target_id: occurrenceId, commitment: "COMMITTED" }),
+    method: "POST",
+    body: JSON.stringify({ target_type: targetType, target_id: targetId, commitment: "COMMITTED" }),
   });
 }
 

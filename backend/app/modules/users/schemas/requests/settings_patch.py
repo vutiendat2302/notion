@@ -13,6 +13,7 @@ class UserSettingsPatchRequest(BaseModel):
     theme: Literal["LIGHT", "DARK", "SYSTEM"] | None = None
     color_theme: str | None = Field(default=None, min_length=1, max_length=32)
     working_hours_json: dict[str, Any] | None = None
+    preferences_json: dict[str, Any] | None = None
 
     @field_validator("timezone")
     @classmethod

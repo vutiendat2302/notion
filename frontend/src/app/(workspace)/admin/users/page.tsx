@@ -1,7 +1,9 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { Plus, Search, X } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { PasswordInput } from "@/components/ui/password-input";
@@ -12,10 +14,12 @@ import {
   adminUpdateUser,
   fetchCurrentUser,
 } from "@/features/users/api";
+import { useI18n } from "@/i18n/i18n-provider";
 import { validateEmail, validatePhone, validateUsername } from "@/lib/validation";
 import type { User } from "@/types/domain";
 
 export default function AdminUsersPage() {
+  const { locale } = useI18n();
   const client = useQueryClient();
   const meQuery = useQuery({ queryKey: ["me"], queryFn: fetchCurrentUser, retry: false });
 
@@ -25,8 +29,8 @@ export default function AdminUsersPage() {
     ""
   );
 
-  // Create form state
-  const [showCreate, setShowCreate] = useState(false);
+  // Create Modal
+  const [createOpen, setCreateOpen] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
@@ -34,7 +38,7 @@ export default function AdminUsersPage() {
   const [newPassword, setNewPassword] = useState("");
   const [newRole, setNewRole] = useState<"USER" | "ADMIN">("USER");
 
-  // Edit modal state
+  // Edit Modal (password reset hidden behind toggle to prevent browser autofill dots)
   const [editing, setEditing] = useState<User | null>(null);
   const [editUsername, setEditUsername] = useState("");
   const [editName, setEditName] = useState("");
@@ -44,7 +48,20 @@ export default function AdminUsersPage() {
   const [editStatus, setEditStatus] = useState<"ACTIVE" | "DISABLED" | "PENDING_DELETION">(
     "ACTIVE"
   );
+  const [showResetPassword, setShowResetPassword] = useState(false);
   const [editPassword, setEditPassword] = useState("");
+
+  useEffect(() => {
+    if (!createOpen && !editing) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setCreateOpen(false);
+        setEditing(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [createOpen, editing]);
 
   const usersQuery = useQuery({
     queryKey: ["admin-users", search, roleFilter, statusFilter],
@@ -70,7 +87,7 @@ export default function AdminUsersPage() {
         status: "ACTIVE",
       }),
     onSuccess: async () => {
-      setShowCreate(false);
+      setCreateOpen(false);
       setNewUsername("");
       setNewName("");
       setNewEmail("");
@@ -78,10 +95,9 @@ export default function AdminUsersPage() {
       setNewPassword("");
       setNewRole("USER");
       await client.invalidateQueries({ queryKey: ["admin-users"] });
-      toast.success("Đã tạo tài khoản mới.");
+      toast.success("Đã tạo tài khoản.");
     },
-    onError: (error) =>
-      toast.error(error instanceof Error ? error.message : "Không tạo được tài khoản."),
+    onError: (error) => toast.error(error instanceof Error ? error.message : "Failed"),
   });
 
   const updateMutation = useMutation({
@@ -94,17 +110,17 @@ export default function AdminUsersPage() {
         phone: editPhone.trim() || null,
         role: editRole,
         status: editStatus,
-        ...(editPassword ? { password: editPassword } : {}),
+        ...(showResetPassword && editPassword ? { password: editPassword } : {}),
       });
     },
     onSuccess: async () => {
       setEditing(null);
+      setShowResetPassword(false);
       setEditPassword("");
       await client.invalidateQueries({ queryKey: ["admin-users"] });
       toast.success("Đã cập nhật tài khoản.");
     },
-    onError: (error) =>
-      toast.error(error instanceof Error ? error.message : "Không cập nhật được tài khoản."),
+    onError: (error) => toast.error(error instanceof Error ? error.message : "Failed"),
   });
 
   const disableMutation = useMutation({
@@ -113,8 +129,7 @@ export default function AdminUsersPage() {
       await client.invalidateQueries({ queryKey: ["admin-users"] });
       toast.success("Đã khóa tài khoản.");
     },
-    onError: (error) =>
-      toast.error(error instanceof Error ? error.message : "Không khóa được tài khoản."),
+    onError: (error) => toast.error(error instanceof Error ? error.message : "Failed"),
   });
 
   if (meQuery.isLoading) {
@@ -124,10 +139,9 @@ export default function AdminUsersPage() {
   if (meQuery.data?.role !== "ADMIN") {
     return (
       <section className="rounded-xl border border-border bg-card p-6">
-        <h1 className="text-lg font-semibold text-foreground">Không có quyền truy cập</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Trang quản lý người dùng chỉ dành cho tài khoản vai trò ADMIN.
-        </p>
+        <h1 className="text-lg font-semibold text-foreground">
+          {locale === "en" ? "Access denied" : "Không có quyền truy cập"}
+        </h1>
       </section>
     );
   }
@@ -140,6 +154,7 @@ export default function AdminUsersPage() {
     setEditPhone(user.phone ?? "");
     setEditRole(user.role);
     setEditStatus(user.status);
+    setShowResetPassword(false);
     setEditPassword("");
   }
 
@@ -177,248 +192,64 @@ export default function AdminUsersPage() {
 
   return (
     <div className="space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-            Admin Console
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">Quản lý người dùng</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Tạo, chỉnh sửa, phân quyền ADMIN/USER và khóa/mở khóa tài khoản.
-          </p>
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            {locale === "en" ? "Users" : "Quản lý người dùng"}
+          </h1>
+          <nav className="inline-flex rounded-lg border border-border bg-card p-0.5 text-xs">
+            <span className="rounded-md bg-primary px-3 py-1.5 font-medium text-primary-foreground">
+              {locale === "en" ? "Users" : "Tài khoản"}
+            </span>
+            <Link
+              href="/admin/templates"
+              className="rounded-md px-3 py-1.5 font-medium text-muted-foreground hover:text-foreground"
+            >
+              {locale === "en" ? "Form & Card Templates" : "Form & Card mẫu"}
+            </Link>
+          </nav>
         </div>
         <button
           type="button"
-          onClick={() => setShowCreate((prev) => !prev)}
-          className="min-h-10 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-95"
+          onClick={() => setCreateOpen(true)}
+          className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-95"
         >
-          {showCreate ? "Đóng form" : "+ Tạo tài khoản"}
+          <Plus className="h-4 w-4" />
+          <span>{locale === "en" ? "Create account" : "Tạo tài khoản"}</span>
         </button>
       </header>
 
-      {showCreate && (
-        <form
-          onSubmit={handleCreate}
-          className="rounded-xl border border-border bg-card p-5 space-y-4"
-        >
-          <h2 className="text-sm font-semibold">Tạo tài khoản mới</h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <label className="grid gap-1 text-xs font-medium">
-              Tên tài khoản
-              <input
-                value={newUsername}
-                onChange={(e) => setNewUsername(e.target.value)}
-                placeholder="Tên tài khoản"
-                className="min-h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
-              />
-            </label>
-            <label className="grid gap-1 text-xs font-medium">
-              Tên hiển thị
-              <input
-                required
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="Tên hiển thị"
-                className="min-h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
-              />
-            </label>
-            <label className="grid gap-1 text-xs font-medium">
-              Email
-              <input
-                type="email"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                placeholder="Email"
-                className="min-h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
-              />
-            </label>
-            <label className="grid gap-1 text-xs font-medium">
-              Số điện thoại
-              <input
-                type="tel"
-                value={newPhone}
-                onChange={(e) => setNewPhone(e.target.value)}
-                placeholder="Số điện thoại"
-                className="min-h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
-              />
-            </label>
-            <label className="grid gap-1 text-xs font-medium">
-              Mật khẩu
-              <PasswordInput
-                required
-                minLength={8}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Tối thiểu 8 ký tự"
-              />
-            </label>
-            <label className="grid gap-1 text-xs font-medium">
-              Vai trò
-              <select
-                value={newRole}
-                onChange={(e) => setNewRole(e.target.value as "ADMIN" | "USER")}
-                className="min-h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
-              >
-                <option value="USER">USER</option>
-                <option value="ADMIN">ADMIN</option>
-              </select>
-            </label>
-          </div>
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setShowCreate(false)}
-              className="min-h-9 rounded-lg border border-border px-3 text-xs font-medium hover:bg-secondary"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              disabled={createMutation.isPending}
-              className="min-h-9 rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground disabled:opacity-50"
-            >
-              {createMutation.isPending ? "Đang tạo…" : "Lưu tài khoản"}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {editing && (
-        <form
-          onSubmit={handleUpdate}
-          className="rounded-xl border border-primary/40 bg-card p-5 space-y-4"
-        >
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Chỉnh sửa: {editing.display_name}</h2>
-            <button
-              type="button"
-              onClick={() => setEditing(null)}
-              className="text-xs text-muted-foreground hover:text-foreground"
-            >
-              Đóng
-            </button>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <label className="grid gap-1 text-xs font-medium">
-              Tên tài khoản
-              <input
-                value={editUsername}
-                onChange={(e) => setEditUsername(e.target.value)}
-                placeholder="Tên tài khoản"
-                className="min-h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
-              />
-            </label>
-            <label className="grid gap-1 text-xs font-medium">
-              Tên hiển thị
-              <input
-                required
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                className="min-h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
-              />
-            </label>
-            <label className="grid gap-1 text-xs font-medium">
-              Email
-              <input
-                type="email"
-                value={editEmail}
-                onChange={(e) => setEditEmail(e.target.value)}
-                className="min-h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
-              />
-            </label>
-            <label className="grid gap-1 text-xs font-medium">
-              Số điện thoại
-              <input
-                type="tel"
-                value={editPhone}
-                onChange={(e) => setEditPhone(e.target.value)}
-                className="min-h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
-              />
-            </label>
-            <label className="grid gap-1 text-xs font-medium">
-              Vai trò
-              <select
-                value={editRole}
-                onChange={(e) => setEditRole(e.target.value as "ADMIN" | "USER")}
-                className="min-h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
-              >
-                <option value="USER">USER</option>
-                <option value="ADMIN">ADMIN</option>
-              </select>
-            </label>
-            <label className="grid gap-1 text-xs font-medium">
-              Trạng thái
-              <select
-                value={editStatus}
-                onChange={(e) =>
-                  setEditStatus(e.target.value as "ACTIVE" | "DISABLED" | "PENDING_DELETION")
-                }
-                className="min-h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
-              >
-                <option value="ACTIVE">ACTIVE</option>
-                <option value="DISABLED">DISABLED</option>
-                <option value="PENDING_DELETION">PENDING_DELETION</option>
-              </select>
-            </label>
-            <label className="grid gap-1 text-xs font-medium">
-              Đặt lại mật khẩu (để trống nếu giữ nguyên)
-              <PasswordInput
-                minLength={8}
-                value={editPassword}
-                onChange={(e) => setEditPassword(e.target.value)}
-                placeholder="Mật khẩu mới (nếu đổi)"
-              />
-            </label>
-          </div>
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setEditing(null)}
-              className="min-h-9 rounded-lg border border-border px-3 text-xs font-medium hover:bg-secondary"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              disabled={updateMutation.isPending}
-              className="min-h-9 rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground disabled:opacity-50"
-            >
-              {updateMutation.isPending ? "Đang lưu…" : "Cập nhật"}
-            </button>
-          </div>
-        </form>
-      )}
-
       <section className="rounded-xl border border-border bg-card p-5">
         <div className="mb-4 flex flex-wrap gap-2">
-          <input
-            aria-label="Tìm kiếm người dùng"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tìm theo tên, email, SĐT…"
-            className="min-h-10 min-w-52 flex-1 rounded-lg border border-input bg-background px-3 text-sm"
-          />
+          <div className="relative min-w-52 flex-1">
+            <Search className="pointer-events-none absolute top-3 left-3 h-4 w-4 text-muted-foreground" />
+            <input
+              aria-label="Tìm kiếm người dùng"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={locale === "en" ? "Search..." : "Tìm kiếm..."}
+              className="h-10 w-full rounded-lg border border-input bg-background pr-3 pl-9 text-sm"
+            />
+          </div>
           <select
-            aria-label="Lọc theo vai trò"
+            aria-label="Vai trò"
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value as "" | "ADMIN" | "USER")}
-            className="min-h-10 rounded-lg border border-input bg-background px-3 text-sm"
+            className="h-10 rounded-lg border border-input bg-background px-3 text-sm"
           >
-            <option value="">Tất cả vai trò</option>
+            <option value="">{locale === "en" ? "All roles" : "Tất cả vai trò"}</option>
             <option value="ADMIN">ADMIN</option>
             <option value="USER">USER</option>
           </select>
           <select
-            aria-label="Lọc theo trạng thái"
+            aria-label="Trạng thái"
             value={statusFilter}
             onChange={(e) =>
-              setStatusFilter(
-                e.target.value as "" | "ACTIVE" | "DISABLED" | "PENDING_DELETION"
-              )
+              setStatusFilter(e.target.value as "" | "ACTIVE" | "DISABLED" | "PENDING_DELETION")
             }
-            className="min-h-10 rounded-lg border border-input bg-background px-3 text-sm"
+            className="h-10 rounded-lg border border-input bg-background px-3 text-sm"
           >
-            <option value="">Tất cả trạng thái</option>
+            <option value="">{locale === "en" ? "All statuses" : "Tất cả trạng thái"}</option>
             <option value="ACTIVE">ACTIVE</option>
             <option value="DISABLED">DISABLED</option>
           </select>
@@ -426,12 +257,12 @@ export default function AdminUsersPage() {
 
         {usersQuery.isLoading ? (
           <p className="py-6 text-sm text-muted-foreground" aria-busy="true">
-            Đang tải danh sách tài khoản…
+            {locale === "en" ? "Loading…" : "Đang tải…"}
           </p>
-        ) : usersQuery.isError ? (
-          <p className="py-6 text-sm text-destructive">Không tải được danh sách người dùng.</p>
         ) : !usersQuery.data?.items.length ? (
-          <p className="py-6 text-sm text-muted-foreground">Không tìm thấy tài khoản nào.</p>
+          <p className="py-6 text-sm text-muted-foreground">
+            {locale === "en" ? "No users found." : "Không có tài khoản."}
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -503,6 +334,247 @@ export default function AdminUsersPage() {
           </div>
         )}
       </section>
+
+      {/* Centered Create Modal */}
+      {createOpen && (
+        <div
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setCreateOpen(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+        >
+          <form
+            onSubmit={handleCreate}
+            className="w-full max-w-lg space-y-4 rounded-2xl border border-border bg-card p-6 shadow-xl"
+          >
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h2 className="text-base font-semibold text-foreground">Tạo tài khoản</h2>
+              <button
+                type="button"
+                onClick={() => setCreateOpen(false)}
+                className="rounded-lg p-1 text-muted-foreground hover:bg-secondary"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs font-medium">
+                Tên tài khoản
+                <input
+                  value={newUsername}
+                  onChange={(e) => setNewUsername(e.target.value)}
+                  placeholder="Tên tài khoản"
+                  className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
+                />
+              </label>
+              <label className="grid gap-1 text-xs font-medium">
+                Tên hiển thị
+                <input
+                  required
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="Tên hiển thị"
+                  className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
+                />
+              </label>
+              <label className="grid gap-1 text-xs font-medium">
+                Email
+                <input
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  placeholder="Email"
+                  className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
+                />
+              </label>
+              <label className="grid gap-1 text-xs font-medium">
+                Số điện thoại
+                <input
+                  type="tel"
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value)}
+                  placeholder="Số điện thoại"
+                  className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
+                />
+              </label>
+              <label className="grid gap-1 text-xs font-medium">
+                Mật khẩu
+                <PasswordInput
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Mật khẩu"
+                />
+              </label>
+              <label className="grid gap-1 text-xs font-medium">
+                Vai trò
+                <select
+                  value={newRole}
+                  onChange={(e) => setNewRole(e.target.value as "ADMIN" | "USER")}
+                  className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
+                >
+                  <option value="USER">USER</option>
+                  <option value="ADMIN">ADMIN</option>
+                </select>
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-border pt-3">
+              <button
+                type="button"
+                onClick={() => setCreateOpen(false)}
+                className="h-9 rounded-lg border border-border px-3 text-xs font-medium hover:bg-secondary"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={createMutation.isPending}
+                className="h-9 rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground disabled:opacity-50"
+              >
+                {createMutation.isPending ? "Đang tạo…" : "Lưu"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Centered Edit Modal */}
+      {editing && (
+        <div
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setEditing(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+        >
+          <form
+            onSubmit={handleUpdate}
+            autoComplete="off"
+            className="w-full max-w-lg space-y-4 rounded-2xl border border-border bg-card p-6 shadow-xl"
+          >
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h2 className="text-base font-semibold text-foreground">{editing.display_name}</h2>
+              <button
+                type="button"
+                onClick={() => setEditing(null)}
+                className="rounded-lg p-1 text-muted-foreground hover:bg-secondary"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs font-medium">
+                Tên tài khoản
+                <input
+                  value={editUsername}
+                  onChange={(e) => setEditUsername(e.target.value)}
+                  className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
+                />
+              </label>
+              <label className="grid gap-1 text-xs font-medium">
+                Tên hiển thị
+                <input
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
+                />
+              </label>
+              <label className="grid gap-1 text-xs font-medium">
+                Email
+                <input
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
+                />
+              </label>
+              <label className="grid gap-1 text-xs font-medium">
+                Số điện thoại
+                <input
+                  type="tel"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
+                />
+              </label>
+              <label className="grid gap-1 text-xs font-medium">
+                Vai trò
+                <select
+                  value={editRole}
+                  onChange={(e) => setEditRole(e.target.value as "ADMIN" | "USER")}
+                  className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
+                >
+                  <option value="USER">USER</option>
+                  <option value="ADMIN">ADMIN</option>
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs font-medium">
+                Trạng thái
+                <select
+                  value={editStatus}
+                  onChange={(e) =>
+                    setEditStatus(e.target.value as "ACTIVE" | "DISABLED" | "PENDING_DELETION")
+                  }
+                  className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
+                >
+                  <option value="ACTIVE">ACTIVE</option>
+                  <option value="DISABLED">DISABLED</option>
+                  <option value="PENDING_DELETION">PENDING_DELETION</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="pt-1">
+              {!showResetPassword ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditPassword("");
+                    setShowResetPassword(true);
+                  }}
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  + Đặt lại mật khẩu mới (thu hồi phiên đăng nhập)
+                </button>
+              ) : (
+                <label className="grid gap-1 text-xs font-medium">
+                  Mật khẩu mới
+                  <PasswordInput
+                    minLength={8}
+                    autoComplete="new-password"
+                    value={editPassword}
+                    onChange={(e) => setEditPassword(e.target.value)}
+                    placeholder="Nhập mật khẩu mới"
+                  />
+                </label>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-border pt-3">
+              <button
+                type="button"
+                onClick={() => setEditing(null)}
+                className="h-9 rounded-lg border border-border px-3 text-xs font-medium hover:bg-secondary"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={updateMutation.isPending}
+                className="h-9 rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground disabled:opacity-50"
+              >
+                {updateMutation.isPending ? "Đang lưu…" : "Cập nhật"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

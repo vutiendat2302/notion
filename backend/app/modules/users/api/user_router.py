@@ -5,7 +5,10 @@ from fastapi import APIRouter, Depends
 
 from app.api.dependencies import CurrentUser, DBSession, get_current_session_id
 from app.modules.users.schemas.requests.settings_patch import UserSettingsPatchRequest
-from app.modules.users.schemas.requests.user_requests import UserMePatchRequest
+from app.modules.users.schemas.requests.user_requests import (
+    ChangePasswordRequest,
+    UserMePatchRequest,
+)
 from app.modules.users.schemas.responses.user_response import (
     UserResponse,
     UserSessionResponse,
@@ -29,6 +32,20 @@ async def patch_me(
 ) -> UserResponse:
     user = await UserService(session).patch_me(current_user.id, payload)
     return UserResponse.model_validate(user)
+
+
+@router.post("/me/change-password")
+async def change_my_password(
+    payload: ChangePasswordRequest,
+    current_user: CurrentUser,
+    session: DBSession,
+) -> dict[str, bool]:
+    await UserService(session).change_my_password(
+        current_user.id,
+        current_password=payload.current_password,
+        new_password=payload.new_password,
+    )
+    return {"updated": True}
 
 
 @router.patch("/me/settings", response_model=UserSettingsResponse)

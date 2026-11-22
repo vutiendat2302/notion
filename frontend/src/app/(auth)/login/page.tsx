@@ -6,6 +6,7 @@ import { Suspense, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { BrandLogo } from "@/components/layout/brand-logo";
+import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { ThemeSwitcher } from "@/components/layout/theme-switcher";
 import { PasswordInput } from "@/components/ui/password-input";
 import { loginAccount } from "@/features/users/api";
@@ -41,7 +42,7 @@ function LoginFormContent() {
       const target =
         nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//")
           ? nextPath
-          : "/today";
+          : "/time-tracking";
       router.replace(target);
       router.refresh();
     } catch (error) {
@@ -59,14 +60,18 @@ function LoginFormContent() {
     <main className="relative flex min-h-screen flex-col justify-between bg-background px-4 py-6 sm:px-6">
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between">
         <BrandLogo variant="full" />
-        <ThemeSwitcher />
+        <div className="flex items-center gap-2">
+          <LanguageSwitcher />
+          <ThemeSwitcher />
+        </div>
       </header>
 
       <section className="mx-auto my-auto flex w-full max-w-[400px] flex-col py-8">
         <div className="rounded-2xl border border-border bg-card p-7 shadow-sm sm:p-8">
           <div className="mb-6 flex flex-col items-center text-center">
             <BrandLogo variant="compact" className="mb-3" />
-            <h1 className="text-xl font-semibold tracking-tight text-foreground">Đăng nhập</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">LumiPlan</h1>
+            <p className="mt-1 text-xs text-muted-foreground">Illuminate Your Plans.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
