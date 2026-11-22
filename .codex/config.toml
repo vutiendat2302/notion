@@ -1,0 +1,26 @@
+# ==============================================================================
+# Codex Project Configuration — Personal Productivity & Time Management App
+# Multi-Agent Model Preset: Balanced (Dual-Harness with Antigravity / Gemini)
+# ==============================================================================
+
+# Main Orchestrator: GPT-6.2 Sol (Medium)
+model = "gpt-6.2-sol"
+model_reasoning_effort = "medium"
+plan_mode_reasoning_effort = "high"
+
+# Dedicated model for /review command: GPT-6 Sol
+review_model = "gpt-6-sol"
+
+# Embed full AGENTS.md instructions
+project_doc_max_bytes = 32768
+
+[features]
+multi_agent = true
+
+[agents]
+enabled = true
+max_concurrent_threads_per_session = 6
+# Default fallback for subagents when not overridden by .codex/agents/*.toml or explicit spawn
+default_subagent_model = "gpt-6-sol"
+default_subagent_reasoning_effort = "medium"
+interrupt_message = true

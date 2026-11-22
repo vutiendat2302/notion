@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.modules.tasks.domain.status_policy import OccurrenceStatus
 from app.modules.tasks.schemas.requests.workflow_requests import RecurrenceRuleRequest
 
 TaskPriority = Literal["LOW", "MEDIUM", "HIGH", "URGENT"]
@@ -21,10 +22,11 @@ class TaskCreateRequest(BaseModel):
     estimated_minutes: int | None = Field(default=None, ge=1, le=1440)
     due_at: datetime | None = None
 
-    # Default initial occurrence fields
+    # Default initial occurrence fields (supports 3-field quick create: title, date/time, status)
     scheduled_date: date | None = None
     start_at: datetime | None = None
     end_at: datetime | None = None
+    status: OccurrenceStatus = OccurrenceStatus.NOT_STARTED
     recurrence: RecurrenceRuleRequest | None = None
 
     @field_validator("title")

@@ -1,6 +1,6 @@
 # Self-hosted web deployment
 
-Current public hostname: **https://notion.vtdat.com**.
+Current public hostname: **https://lumiplan.vtdat.com**.
 
 This installation runs in the dedicated Compose project `notion-productivity-isolated`. The existing MySQL server is shared, but the application uses its own database and database user. Backend and frontend ports bind only to loopback (`127.0.0.1:18000` and `127.0.0.1:3100`). The optional Cloudflare tunnel has separate credentials and a separate Compose service; the existing Zalo Bot tunnel and its DNS routes are outside this project.
 
@@ -10,7 +10,19 @@ The repository-root `.env` is ignored by Git. Set `COMPOSE_PROJECT_NAME`, dedica
 
 The frontend serves `/api/v1/*` on the same HTTPS origin and forwards those requests internally to `backend:8000`. The browser does not need direct access to port 18000.
 
-## Start and inspect
+## Quick commands (`lumi-on` / `lumi-off` / `lumi-status` — mirrors `bot-on` / `bot-status`)
+
+Run from anywhere on the host (installed in `~/.local/bin/` and backed by [lumiplan-ctl.sh](../../infra/scripts/lumiplan-ctl.sh)):
+
+```bash
+lumi-on       # Build & start minio, backend, worker, frontend (:3100/:18000) + Cloudflare tunnel
+lumi-status   # Show container status and probe loopback + https://lumiplan.vtdat.com
+lumi-off      # Stop production containers & Cloudflare tunnel cleanly without removing volumes
+```
+
+Equivalent `Makefile` targets from the repo root: `make prod-on`, `make prod-status`, `make prod-off`, `make prod-logs SVC=cloudflare-tunnel`.
+
+## Start and inspect (manual Compose)
 
 Run from the repository root:
 
@@ -20,7 +32,7 @@ docker compose -p notion-productivity-isolated --env-file .env -f infra/compose.
 docker compose -p notion-productivity-isolated --env-file .env -f infra/compose.yaml -f infra/compose.prod.yaml ps
 ```
 
-Initialize the first owner account through the private loopback origin before enabling public DNS. On this installation, the generated owner password is stored in `~/.config/notion-productivity/initial-owner-password` with mode `0600`; do not copy it into the repository or deployment logs. A password-change screen is not implemented yet, so retain this file securely until that feature exists.
+Initialize the first owner account through the private loopback origin before enabling public DNS. On this installation, the generated owner password is stored in `~/.config/notion-productivity/initial-owner-password` with mode `0600`; do not copy it into the repository or deployment logs. Rotate the initial password from `/settings` (`PATCH /api/v1/users/me/password`) after logging in.
 
 After the hostname and tunnel ingress are verified, start **only** this project's tunnel:
 
@@ -28,7 +40,7 @@ After the hostname and tunnel ingress are verified, start **only** this project'
 docker compose -p notion-productivity-isolated --env-file .env -f infra/compose.yaml -f infra/compose.prod.yaml --profile public up -d cloudflare-tunnel
 ```
 
-The public DNS CNAME for `notion.vtdat.com` targets this project's tunnel ID `e2241ea8-cbe4-4c03-968b-8659e8aded52`. Confirm the target in Cloudflare DNS before sharing the URL. The tunnel ingress forwards this hostname to `http://frontend:3000` and returns 404 for every other hostname.
+The public DNS CNAME for `lumiplan.vtdat.com` targets this project's tunnel ID `e2241ea8-cbe4-4c03-968b-8659e8aded52`. Confirm the target in Cloudflare DNS before sharing the URL. The tunnel ingress forwards this hostname to `http://frontend:3000` and returns 404 for every other hostname.
 
 ## Verification and maintenance
 

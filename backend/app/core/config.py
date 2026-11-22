@@ -18,7 +18,7 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
-    app_name: str = "Personal Productivity API"
+    app_name: str = "LumiPlan API"
     app_env: Literal["development", "test", "staging", "production"] = "development"
     app_debug: bool = False
     default_timezone: str = "Asia/Ho_Chi_Minh"
@@ -42,13 +42,40 @@ class Settings(BaseSettings):
     access_token_ttl_minutes: int = Field(default=15, ge=1, le=120)
     refresh_token_ttl_days: int = Field(default=14, ge=1, le=90)
     cookie_secure: bool = False
-    cors_allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    cors_allowed_origins: str = (
+        "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3010,http://127.0.0.1:3010"
+    )
+    default_admin_email: str = "admin@dat.local"
+    default_admin_username: str = "admin"
+    default_admin_password: str = "dat123456"
+    default_admin_display_name: str = "Admin"
+    default_user_email: str = "user@dat.local"
+    default_user_username: str = "user"
+    default_user_password: str = "dat123456"
+    default_user_display_name: str = "User"
+
+    # Storage (MinIO S3)
+    minio_endpoint: str = "127.0.0.1:9010"
+    minio_root_user: str = "minioadmin"
+    minio_root_password: str = "minioadmin"
+    minio_secure: bool = False
+    minio_bucket_uploads: str = "personal-uploads"
 
     # Service-to-service
     s2s_signing_secret: str = "CHANGE_ME_LOCAL_S2S_SECRET_AT_LEAST_32_CHARS"
     ai_enabled: bool = False
-    ai_service_base_url: str = "http://ai-service:8001"
+    ai_service_base_url: str = "http://127.0.0.1:8001"
     ai_request_timeout_seconds: int = 45
+    ai_service_audience: str = "ai-service"
+    backend_tool_audience: str = "backend-tools"
+    ollama_model: str = "qwen3:8b"
+    claude_api_key: str = ""
+    claude_model: str = "claude-sonnet-4-6"
+    openai_api_key: str = ""
+    codex_model: str = "gpt-5.4"
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-3-flash-preview"
+    ai_cloud_api_key: str = ""
 
     @model_validator(mode="after")
     def validate_runtime_invariants(self) -> Settings:

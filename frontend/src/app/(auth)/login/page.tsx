@@ -1,58 +1,55 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
-import { apiRequest, ApiClientError } from "@/lib/api/client";
-import type { User } from "@/types/domain";
+import { BrandLogo } from "@/components/layout/brand-logo";
+import { LanguageSwitcher } from "@/components/layout/language-switcher";
+import { ThemeSwitcher } from "@/components/layout/theme-switcher";
+import { PasswordInput } from "@/components/ui/password-input";
+import { loginAccount } from "@/features/users/api";
+import { ApiClientError } from "@/lib/api/client";
 
-interface AuthPayload {
-  access_token: string;
-  refresh_token: string;
-  token_type: string;
-  expires_in: number;
-  user: User;
-}
-
-export default function LoginPage() {
+function LoginFormContent() {
   const router = useRouter();
-  const [mode, setMode] = useState<"login" | "bootstrap">("login");
-  const [email, setEmail] = useState("");
+  const searchParams = useSearchParams();
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [displayName, setDisplayName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    if (!identifier.trim() || !password) {
+      setErrorMessage("Vui lòng nhập tên tài khoản và mật khẩu.");
+      return;
+    }
+
     setSubmitting(true);
     setErrorMessage(null);
 
     try {
-      const endpoint = mode === "login" ? "/auth/login" : "/auth/bootstrap";
-      const body =
-        mode === "login"
-          ? { email, password, device_label: "web-browser" }
-          : { email, password, display_name: displayName };
-
-      await apiRequest<AuthPayload>(endpoint, {
-        method: "POST",
-        body: JSON.stringify(body),
+      await loginAccount({
+        identifier: identifier.trim(),
+        password,
+        device_label: "web-browser",
       });
 
-      toast.success(
-        mode === "login" ? "Signed in successfully." : "Owner workspace initialized."
-      );
-      router.push("/today");
+      toast.success("Đăng nhập thành công.");
+      const nextPath = searchParams.get("next");
+      const target =
+        nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//")
+          ? nextPath
+          : "/time-tracking";
+      router.replace(target);
       router.refresh();
     } catch (error) {
       if (error instanceof ApiClientError) {
         setErrorMessage(error.message);
       } else {
-        setErrorMessage("Cannot reach Backend API. Check if backend is running.");
+        setErrorMessage("Không kết nối được tới máy chủ Backend.");
       }
     } finally {
       setSubmitting(false);
@@ -60,143 +57,97 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
-      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-xs">
-        <div className="mb-6">
-          <p className="text-xs font-medium uppercase tracking-wider text-primary">
-            Productivity OS
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold text-foreground">
-            {mode === "login" ? "Sign in to your workspace" : "Initialize Owner Account"}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {mode === "login"
-              ? "HttpOnly cookie session with Backend FastAPI."
-              : "First-time single-user bootstrap (locked automatically once created)."}
-          </p>
+    <main className="relative flex min-h-screen flex-col justify-between bg-background px-4 py-6 sm:px-6">
+      <header className="mx-auto flex w-full max-w-5xl items-center justify-between">
+        <BrandLogo variant="full" />
+        <div className="flex items-center gap-2">
+          <LanguageSwitcher />
+          <ThemeSwitcher />
         </div>
+      </header>
 
-        <div className="mb-6 grid grid-cols-2 gap-1 rounded-lg bg-secondary p-1 text-xs font-medium">
-          <button
-            type="button"
-            onClick={() => setMode("login")}
-            className={`rounded-md py-1.5 transition-colors ${
-              mode === "login"
-                ? "bg-card text-foreground shadow-xs"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Sign in
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("bootstrap")}
-            className={`rounded-md py-1.5 transition-colors ${
-              mode === "bootstrap"
-                ? "bg-card text-foreground shadow-xs"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            First-time Bootstrap
-          </button>
-        </div>
+      <section className="mx-auto my-auto flex w-full max-w-[400px] flex-col py-8">
+        <div className="rounded-2xl border border-border bg-card p-7 shadow-sm sm:p-8">
+          <div className="mb-6 flex flex-col items-center text-center">
+            <BrandLogo variant="compact" className="mb-3" />
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">LumiPlan</h1>
+            <p className="mt-1 text-xs text-muted-foreground">Illuminate Your Plans.</p>
+          </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {mode === "bootstrap" && (
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label
-                htmlFor="display_name"
-                className="block text-xs font-medium text-foreground"
-              >
-                Display name
+              <label htmlFor="identifier" className="block text-xs font-medium text-foreground">
+                Tên tài khoản
               </label>
               <input
-                id="display_name"
+                id="identifier"
                 type="text"
                 required
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Your name"
-                className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+                autoComplete="username"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="Tên tài khoản"
+                className="mt-1.5 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none transition-colors focus:border-primary"
               />
             </div>
-          )}
 
-          <div>
-            <label htmlFor="email" className="block text-xs font-medium text-foreground">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-xs font-medium text-foreground"
-            >
-              Password
-            </label>
-            <div className="relative mt-1.5">
-              <input
+            <div>
+              <label htmlFor="password" className="block text-xs font-medium text-foreground">
+                Mật khẩu
+              </label>
+              <PasswordInput
                 id="password"
-                type={showPassword ? "text" : "password"}
                 required
-                minLength={8}
-                autoComplete={mode === "login" ? "current-password" : "new-password"}
+                minLength={1}
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="At least 8 characters"
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 pr-16 text-sm text-foreground outline-none focus:border-primary"
+                placeholder="Mật khẩu"
+                wrapperClassName="mt-1.5"
+                className="h-10"
               />
-              <button
-                type="button"
-                aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                aria-controls="password"
-                aria-pressed={showPassword}
-                onClick={() => setShowPassword((value) => !value)}
-                className="absolute inset-y-0 right-1 my-auto min-h-9 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary"
+            </div>
+
+            {errorMessage && (
+              <div
+                role="alert"
+                className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
               >
-                {showPassword ? "Ẩn" : "Hiện"}
-              </button>
-            </div>
-          </div>
+                {errorMessage}
+              </div>
+            )}
 
-          {errorMessage && (
-            <div
-              role="alert"
-              className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+            <button
+              type="submit"
+              disabled={submitting}
+              className="mt-1 h-10 w-full rounded-lg bg-primary text-sm font-medium text-primary-foreground transition-opacity hover:opacity-95 disabled:opacity-50"
             >
-              {errorMessage}
-            </div>
-          )}
+              {submitting ? "Đang đăng nhập…" : "Đăng nhập"}
+            </button>
+          </form>
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-95 disabled:opacity-50"
-          >
-            {submitting
-              ? "Processing..."
-              : mode === "login"
-                ? "Sign in"
-                : "Create Owner Workspace"}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center">
-          <Link href="/today" className="text-xs text-muted-foreground hover:text-primary">
-            Back to Today workspace
-          </Link>
+          <div className="mt-6 border-t border-border pt-4 text-center text-xs text-muted-foreground">
+            Chưa có tài khoản?{" "}
+            <Link href="/register" className="font-medium text-primary hover:underline">
+              Đăng ký
+            </Link>
+          </div>
         </div>
-      </div>
+      </section>
+
+      <footer className="mx-auto flex w-full max-w-5xl items-center justify-center text-xs text-muted-foreground">
+        <Link href="/policy" className="hover:text-foreground hover:underline">
+          Chính sách của chúng tôi
+        </Link>
+      </footer>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-background" />}>
+      <LoginFormContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,7 @@
 import { apiRequest } from "@/lib/api/client";
 import type {
   Category,
+  OccurrenceStatus,
   OccurrenceWithTask,
   Project,
   Task,
@@ -82,10 +83,52 @@ export async function fetchProjects(): Promise<Project[]> {
   return apiRequest<Project[]>("/projects");
 }
 
+export async function createProject(payload: {
+  title: string;
+  description?: string | null;
+  category_id?: string | null;
+  status?: "PLANNED" | "ACTIVE" | "ON_HOLD" | "COMPLETED" | "CANCELLED";
+  start_date?: string | null;
+  target_date?: string | null;
+}): Promise<Project> {
+  return apiRequest<Project>("/projects", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateProject(
+  projectId: string,
+  payload: Partial<{
+    title: string;
+    description: string | null;
+    category_id: string | null;
+    status: "PLANNED" | "ACTIVE" | "ON_HOLD" | "COMPLETED" | "CANCELLED";
+    start_date: string | null;
+    target_date: string | null;
+    archived: boolean;
+    expected_version: number;
+  }>
+): Promise<Project> {
+  return apiRequest<Project>(`/projects/${projectId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteProject(projectId: string): Promise<void> {
+  return apiRequest<void>(`/projects/${projectId}`, { method: "DELETE" });
+}
+
 export async function createTask(payload: {
   title: string;
+  description?: string | null;
   scheduled_date?: string | null;
+  start_at?: string | null;
+  end_at?: string | null;
+  due_at?: string | null;
   priority?: TaskPriority;
+  status?: OccurrenceStatus;
   category_id?: string | null;
   project_id?: string | null;
   estimated_minutes?: number | null;

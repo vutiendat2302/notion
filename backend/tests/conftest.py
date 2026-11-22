@@ -3,10 +3,12 @@ from typing import Any
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.core.config import get_settings
+from app.db.base import Base
 from app.db.session import get_db_session
 from app.main import app
 
@@ -48,6 +50,12 @@ async def db_proxy_session() -> AsyncIterator[TransactionalProxySession]:
             autoflush=False,
             join_transaction_mode="create_savepoint",
         )
+        # Ensure deterministic empty state inside the rolled-back transaction
+        # (DELETE inside InnoDB transaction does not commit and rolls back cleanly).
+        await real_session.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
+        for table_name in Base.metadata.tables:
+            await real_session.execute(text(f"DELETE FROM `{table_name}`"))
+        await real_session.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
         proxy = TransactionalProxySession(real_session)
         try:
             yield proxy

@@ -27,7 +27,7 @@ async def test_full_productivity_schema_matches_metadata(
         ).scalars()
     )
     assert names == set(Base.metadata.tables) | {"alembic_version"}
-    assert len(Base.metadata.tables) == 36
+    assert len(Base.metadata.tables) == 37
 
 
 @pytest.mark.asyncio

@@ -71,6 +71,7 @@ class TaskService:
             await RecurrenceService(self.session).add_rule_for_new_task(task, payload.recurrence)
         else:
             # ADR-CORE-02: one-off tasks always receive one default occurrence.
+            initial_status = payload.status
             default_occurrence = TaskOccurrence(
                 user_id=user_id,
                 task_id=task.id,
@@ -80,7 +81,8 @@ class TaskService:
                 end_at=payload.end_at,
                 due_at=payload.due_at,
                 estimated_minutes=payload.estimated_minutes,
-                status=OccurrenceStatus.NOT_STARTED.value,
+                status=initial_status.value,
+                completed_at=utc_now() if initial_status == OccurrenceStatus.DONE else None,
             )
             await self.repo.add_occurrence(default_occurrence)
 

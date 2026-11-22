@@ -14,6 +14,7 @@ import {
   fetchProjects,
   reopenOccurrence,
 } from "@/features/tasks/api";
+import { DynamicChartCard } from "@/features/analytics/chart-renderer";
 import { dateInTimeZone } from "@/features/planning/period";
 import { fetchCurrentUser } from "@/features/users/api";
 import { QuickAddTask } from "@/features/tasks/quick-add-task";
@@ -106,17 +107,7 @@ export default function TodayPage() {
 
   return (
     <div className="space-y-8">
-      <section className="flex flex-col gap-1">
-        <p className="text-xs font-medium uppercase tracking-wider text-primary">
-          Today
-        </p>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
-          {todayHeading}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Focus on what matters today without visual noise.
-        </p>
-      </section>
+      <h1 className="sr-only">{todayHeading}</h1>
 
       <QuickAddTask
         placeholder="Quick add for Today (press Enter)..."
@@ -237,6 +228,23 @@ export default function TodayPage() {
               onToggleComplete={(it) => toggleMutation.mutate(it)} onSelect={setSelectedItem} />)}</div>
           </section>}
           {catalogQuery.data?.truncated && <p className="text-xs text-muted-foreground">Danh sách đã hoàn thành có thể chưa đầy đủ do giới hạn tải 10.000 lần thực hiện.</p>}
+          <section className="grid gap-4 pt-2 md:grid-cols-3">
+            <DynamicChartCard
+              chartKey="today_daily_timeline"
+              title="Lịch trình trong ngày"
+              filters={{ period_key: todayIso }}
+            />
+            <DynamicChartCard
+              chartKey="today_completion_ring"
+              title="Hoàn thành hôm nay"
+              filters={{ period_key: todayIso }}
+            />
+            <DynamicChartCard
+              chartKey="today_focus_time"
+              title="Thời gian tập trung"
+              filters={{ period_key: todayIso }}
+            />
+          </section>
         </>
       )}
 

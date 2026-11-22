@@ -116,15 +116,8 @@ function TasksWorkspaceContent() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Tasks
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            One Task definition, tracked cleanly per occurrence.
-          </p>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="sr-only">Tasks</h1>
 
         <div className="flex flex-wrap gap-1 rounded-xl border border-border bg-card p-1">
           {SCOPES.map((tab) => (

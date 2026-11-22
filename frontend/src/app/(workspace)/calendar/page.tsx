@@ -27,12 +27,8 @@ export default function CalendarPage() {
     </section>;
   }
 
-  return <div className="space-y-5">
-    <header>
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Calendar</p>
-      <h1 className="mt-1 text-2xl font-semibold tracking-tight">Lịch & khung giờ</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Thả task từ Inbox vào lịch, hoặc dời một lần thực hiện trên lịch.</p>
-    </header>
+  return <div className="space-y-4">
+    <h1 className="sr-only">Calendar</h1>
     {catalog.isLoading || user.isLoading ?
       <div className="h-[34rem] animate-pulse rounded-xl border border-border bg-card" aria-busy="true" /> :
       catalog.isError || user.isError ?
