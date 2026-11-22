@@ -25,13 +25,35 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             "status IN ('ACTIVE', 'DISABLED', 'PENDING_DELETION')",
             name="users_status",
         ),
+        CheckConstraint(
+            "role IN ('ADMIN', 'USER')",
+            name="users_role",
+        ),
+        CheckConstraint(
+            "email_normalized IS NOT NULL OR phone_normalized IS NOT NULL",
+            name="users_contact_required",
+        ),
         Index("ix_users_status", "status"),
+        Index("ix_users_role", "role"),
     )
 
-    email: Mapped[str] = mapped_column(String(254), nullable=False)
-    email_normalized: Mapped[str] = mapped_column(String(254), nullable=False, unique=True)
+    email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    email_normalized: Mapped[str | None] = mapped_column(
+        String(254), nullable=True, unique=True
+    )
+    username: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    username_normalized: Mapped[str | None] = mapped_column(
+        String(50), nullable=True, unique=True
+    )
+    phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    phone_normalized: Mapped[str | None] = mapped_column(
+        String(20), nullable=True, unique=True
+    )
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     display_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    role: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="USER", server_default=text("'USER'")
+    )
     status: Mapped[str] = mapped_column(
         String(24), nullable=False, default="ACTIVE", server_default=text("'ACTIVE'")
     )
@@ -69,7 +91,7 @@ class UserSettings(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         String(16), nullable=False, default="SYSTEM", server_default=text("'SYSTEM'")
     )
     color_theme: Mapped[str] = mapped_column(
-        String(32), nullable=False, default="SOFT_BLUE", server_default=text("'SOFT_BLUE'")
+        String(32), nullable=False, default="SOFT_PASTEL", server_default=text("'SOFT_PASTEL'")
     )
     working_hours_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 

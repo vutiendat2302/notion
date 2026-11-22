@@ -1,92 +1,96 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #f7f9fc;
-  --foreground: #27354b;
+  /* Soft Pastel Light Theme (inspired by cream, rose pink, sage & muted teal) */
+  --background: #faf8f3;
+  --foreground: #23343b;
   --card: #ffffff;
-  --card-foreground: #27354b;
+  --card-foreground: #23343b;
   --popover: #ffffff;
-  --popover-foreground: #27354b;
-  --primary: #5378ac;
-  --primary-hover: #456a9d;
+  --popover-foreground: #23343b;
+  --primary: #5f9b99;
+  --primary-hover: #4e8684;
   --primary-foreground: #ffffff;
-  --soft-blue-decorative: #5d83bb;
-  --secondary: #f1f5fa;
-  --secondary-foreground: #27354b;
-  --muted: #f1f5fa;
-  --muted-foreground: #65758b;
-  --accent: #e8eff9;
-  --accent-foreground: #36547e;
-  --destructive: #b4535f;
-  --border: #e6ebf2;
-  --input: #e6ebf2;
-  --ring: #5378ac;
+  --soft-blue-decorative: #7db8b6;
+  --secondary: #f4efe6;
+  --secondary-foreground: #23343b;
+  --muted: #f4efe6;
+  --muted-foreground: #63737a;
+  --accent: #e8f2f0;
+  --accent-foreground: #2a5857;
+  --destructive: #d46a6e;
+  --border: #e8e1d6;
+  --input: #e8e1d6;
+  --ring: #5f9b99;
   --radius: 0.625rem;
 
-  --category-lavender: #a99adb;
-  --category-lavender-soft: #f1edfa;
-  --category-lavender-text: #66558a;
+  --category-lavender: #c7b6dc;
+  --category-lavender-soft: #f5f1fa;
+  --category-lavender-text: #655180;
 
-  --category-sage: #8cb9a5;
-  --category-sage-soft: #edf6f0;
-  --category-sage-text: #3e7061;
+  --category-sage: #9ab898;
+  --category-sage-soft: #eff5ee;
+  --category-sage-text: #405e3f;
 
-  --category-peach: #f0b28d;
-  --category-peach-soft: #fff3ea;
-  --category-peach-text: #9a562e;
+  --category-peach: #f4ae9b;
+  --category-peach-soft: #fff2ee;
+  --category-peach-text: #944e3d;
 
-  --category-rose: #e6a0b0;
-  --category-rose-soft: #fceff3;
-  --category-rose-text: #93445f;
+  --category-rose: #f2b5c1;
+  --category-rose-soft: #fdf0f3;
+  --category-rose-text: #8c4454;
 
-  --category-butter: #e6c879;
-  --category-butter-soft: #fbf5e2;
-  --category-butter-text: #846a20;
+  --category-butter: #f2df8a;
+  --category-butter-soft: #fef9e2;
+  --category-butter-text: #7d6718;
 
-  --category-sky: #8dbddb;
-  --category-sky-soft: #edf6fc;
-  --category-sky-text: #3f7196;
+  --category-sky: #7db8b6;
+  --category-sky-soft: #eaf5f4;
+  --category-sky-text: #2e6664;
 }
 
 .dark {
-  --background: #111925;
-  --foreground: #ecf2fa;
-  --card: #182332;
-  --card-foreground: #ecf2fa;
-  --popover: #182332;
-  --popover-foreground: #ecf2fa;
-  --primary: #9bbce6;
-  --primary-hover: #b2ccf0;
-  --primary-foreground: #111925;
-  --soft-blue-decorative: #7aa3d6;
-  --secondary: #202d3e;
-  --secondary-foreground: #ecf2fa;
-  --muted: #202d3e;
-  --muted-foreground: #afbcd0;
-  --accent: #263b54;
-  --accent-foreground: #d9e8fb;
-  --destructive: #e1919b;
-  --border: #2d3a4d;
-  --input: #2d3a4d;
-  --ring: #9bbce6;
+  /* Warm Charcoal + Amber + Sand + Mauve Dark Theme */
+  --background: #1c1b1a;
+  --foreground: #f4ede2;
+  --card: #272625;
+  --card-foreground: #f4ede2;
+  --popover: #2b2928;
+  --popover-foreground: #f4ede2;
+  --primary: #f59300;
+  --primary-hover: #ffa629;
+  --primary-foreground: #1c1b1a;
+  --soft-blue-decorative: #e5cfa8;
+  --secondary: #3a3938;
+  --secondary-foreground: #f4ede2;
+  --muted: #3a3938;
+  --muted-foreground: #c2b4b2;
+  --accent: #4b3e40;
+  --accent-foreground: #e5cfa8;
+  --destructive: #e57368;
+  --border: #4a4645;
+  --input: #4a4645;
+  --ring: #f59300;
 
-  --category-lavender-soft: #26213d;
-  --category-lavender-text: #cdc2f5;
+  --category-lavender-soft: #322b3a;
+  --category-lavender-text: #dfd2ee;
 
-  --category-sage-soft: #1b2f29;
-  --category-sage-text: #aad4c2;
+  --category-sage-soft: #26312a;
+  --category-sage-text: #c1d8be;
 
-  --category-peach-soft: #35241b;
-  --category-peach-text: #f5c6aa;
+  --category-peach-soft: #3e2d26;
+  --category-peach-text: #f3c4b2;
 
-  --category-rose-soft: #361e26;
-  --category-rose-text: #f2bcc8;
+  --category-rose-soft: #3d282e;
+  --category-rose-text: #f1c7cf;
 
-  --category-butter-soft: #332c19;
-  --category-butter-text: #eed796;
+  --category-butter-soft: #3d3521;
+  --category-butter-text: #f1df9f;
 
-  --category-sky-soft: #1b2d3b;
-  --category-sky-text: #add5ed;
+  --category-sky-soft: #253336;
+  --category-sky-text: #b7d8d6;
 }
 
 @theme inline {

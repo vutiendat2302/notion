@@ -1,10 +1,11 @@
 from datetime import timedelta
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.exceptions import ConflictError, ForbiddenError, UnauthorizedError
+from app.core.exceptions import ConflictError, ForbiddenError, UnauthorizedError, ValidationAppError
 from app.core.security import (
     create_access_token,
     generate_refresh_token,
@@ -15,10 +16,21 @@ from app.core.security import (
 from app.db.base import new_uuid7, utc_now
 from app.modules.auth.models.auth_session import AuthSession
 from app.modules.auth.repositories.auth_session_repository import AuthSessionRepository
-from app.modules.auth.schemas.requests.auth_requests import BootstrapUserRequest, LoginRequest
+from app.modules.auth.schemas.requests.auth_requests import (
+    BootstrapUserRequest,
+    LoginRequest,
+    RegisterRequest,
+)
 from app.modules.taxonomy.models.category import Category
 from app.modules.users.models.user import User, UserSettings
 from app.modules.users.repositories.user_repository import UserRepository
+from app.shared.contacts import (
+    looks_like_email,
+    looks_like_phone,
+    normalize_email,
+    normalize_phone,
+    normalize_username,
+)
 
 DEFAULT_CATEGORIES: list[tuple[str, str, int]] = [
     ("Study", "LAVENDER", 1),
@@ -28,6 +40,89 @@ DEFAULT_CATEGORIES: list[tuple[str, str, int]] = [
     ("Attention", "BUTTER", 5),
     ("Schedule", "SKY", 6),
 ]
+
+
+async def create_user_with_defaults(
+    session: AsyncSession,
+    user_repo: UserRepository,
+    *,
+    username: str | None = None,
+    display_name: str,
+    email: str | None,
+    phone: str | None,
+    password: str,
+    role: str = "USER",
+    status: str = "ACTIVE",
+) -> User:
+    """Create a user along with default UserSettings and starter categories."""
+    clean_username, norm_username = normalize_username(username)
+    clean_email, norm_email = normalize_email(email)
+    clean_phone, norm_phone = normalize_phone(phone)
+
+    if norm_email is None and norm_phone is None:
+        raise ConflictError(
+            "Phải cung cấp ít nhất Email hoặc Số điện thoại.",
+            code="CONTACT_REQUIRED",
+        )
+
+    if norm_username and await user_repo.get_by_username_normalized(norm_username) is not None:
+        raise ConflictError(
+            "Tên tài khoản này đã được sử dụng.",
+            code="USERNAME_ALREADY_EXISTS",
+        )
+    if norm_email and await user_repo.get_by_email_normalized(norm_email) is not None:
+        raise ConflictError(
+            "Email này đã được sử dụng bởi một tài khoản khác.",
+            code="EMAIL_ALREADY_EXISTS",
+        )
+    if norm_phone and await user_repo.get_by_phone_normalized(norm_phone) is not None:
+        raise ConflictError(
+            "Số điện thoại này đã được sử dụng bởi một tài khoản khác.",
+            code="PHONE_ALREADY_EXISTS",
+        )
+
+    settings = get_settings()
+    user = User(
+        username=clean_username,
+        username_normalized=norm_username,
+        email=clean_email,
+        email_normalized=norm_email,
+        phone=clean_phone,
+        phone_normalized=norm_phone,
+        password_hash=hash_password(password),
+        display_name=display_name.strip(),
+        role=role,
+        status=status,
+    )
+    try:
+        await user_repo.add_user(user)
+    except IntegrityError as exc:
+        raise ConflictError(
+            "Email hoặc số điện thoại đã tồn tại trong hệ thống.",
+            code="CONTACT_ALREADY_EXISTS",
+        ) from exc
+
+    user_settings = UserSettings(
+        user_id=user.id,
+        timezone=settings.default_timezone,
+        week_starts_on=1,
+        locale="vi-VN",
+        theme="SYSTEM",
+        color_theme="SOFT_PASTEL",
+    )
+    await user_repo.add_settings(user_settings)
+
+    for name, accent, sort_order in DEFAULT_CATEGORIES:
+        session.add(
+            Category(
+                user_id=user.id,
+                name=name,
+                accent_token=accent,
+                sort_order=sort_order,
+            )
+        )
+    await session.flush()
+    return user
 
 
 class AuthService:
@@ -44,38 +139,16 @@ class AuthService:
                 code="BOOTSTRAP_ALREADY_COMPLETED",
             )
 
-        settings = get_settings()
-        normalized_email = str(payload.email).strip().casefold()
-        user = User(
-            email=str(payload.email).strip(),
-            email_normalized=normalized_email,
-            password_hash=hash_password(payload.password),
-            display_name=payload.display_name.strip(),
+        user = await create_user_with_defaults(
+            self.session,
+            self.user_repo,
+            display_name=payload.display_name,
+            email=str(payload.email),
+            phone=None,
+            password=payload.password,
+            role="ADMIN",
             status="ACTIVE",
         )
-        await self.user_repo.add_user(user)
-
-        user_settings = UserSettings(
-            user_id=user.id,
-            timezone=settings.default_timezone,
-            week_starts_on=1,
-            locale="vi-VN",
-            theme="SYSTEM",
-            color_theme="SOFT_BLUE",
-        )
-        await self.user_repo.add_settings(user_settings)
-
-        for name, accent, sort_order in DEFAULT_CATEGORIES:
-            self.session.add(
-                Category(
-                    user_id=user.id,
-                    name=name,
-                    accent_token=accent,
-                    sort_order=sort_order,
-                )
-            )
-        await self.session.flush()
-
         access_token, refresh_token, ttl = await self._issue_session(
             user=user, device_label="bootstrap"
         )
@@ -84,13 +157,52 @@ class AuthService:
         assert loaded_user is not None
         return loaded_user, access_token, refresh_token, ttl
 
+    async def register(self, payload: RegisterRequest) -> tuple[User, str, str, int]:
+        user = await create_user_with_defaults(
+            self.session,
+            self.user_repo,
+            username=payload.username,
+            display_name=payload.display_name,
+            email=payload.email,
+            phone=payload.phone,
+            password=payload.password,
+            role="USER",
+            status="ACTIVE",
+        )
+        access_token, refresh_token, ttl = await self._issue_session(
+            user=user, device_label=payload.device_label or "web-register"
+        )
+        await self.session.commit()
+        loaded_user = await self.user_repo.get_by_id(user.id)
+        assert loaded_user is not None
+        return loaded_user, access_token, refresh_token, ttl
+
     async def login(self, payload: LoginRequest) -> tuple[User, str, str, int]:
-        normalized_email = str(payload.email).strip().casefold()
-        user = await self.user_repo.get_by_email_normalized(normalized_email)
+        raw_identifier = (payload.identifier or payload.email or "").strip()
+        user: User | None = None
+        try:
+            if looks_like_email(raw_identifier):
+                _, norm_email = normalize_email(raw_identifier)
+                if norm_email:
+                    user = await self.user_repo.get_by_email_normalized(norm_email)
+            elif looks_like_phone(raw_identifier):
+                _, norm_phone = normalize_phone(raw_identifier)
+                if norm_phone:
+                    user = await self.user_repo.get_by_phone_normalized(norm_phone)
+            else:
+                _, norm_username = normalize_username(raw_identifier)
+                if norm_username:
+                    user = await self.user_repo.get_by_username_normalized(norm_username)
+        except ValidationAppError:
+            user = None
+
         if user is None or not verify_password(payload.password, user.password_hash):
-            raise UnauthorizedError("Invalid email or password.", code="INVALID_CREDENTIALS")
+            raise UnauthorizedError(
+                "Sai thông tin đăng nhập hoặc mật khẩu.",
+                code="INVALID_CREDENTIALS",
+            )
         if user.status != "ACTIVE":
-            raise ForbiddenError("Account is disabled.", code="ACCOUNT_DISABLED")
+            raise ForbiddenError("Tài khoản đã bị vô hiệu hóa.", code="ACCOUNT_DISABLED")
 
         user.last_login_at = utc_now()
         access_token, refresh_token, ttl = await self._issue_session(
@@ -108,7 +220,6 @@ class AuthService:
         if stored is None:
             raise UnauthorizedError("Invalid refresh token.", code="INVALID_REFRESH_TOKEN")
 
-        # Reuse detection: revoke whole family if an already-revoked token is replayed
         if stored.revoked_at is not None:
             await self.session_repo.revoke_family(stored.family_id, now)
             await self.session.commit()
@@ -169,5 +280,7 @@ class AuthService:
             last_used_at=now,
         )
         await self.session_repo.add(session_row)
-        access_token, ttl_seconds = create_access_token(user_id=user.id, session_id=session_row.id)
+        access_token, ttl_seconds = create_access_token(
+            user_id=user.id, session_id=session_row.id, role=user.role
+        )
         return access_token, raw_refresh, ttl_seconds

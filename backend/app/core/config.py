@@ -42,7 +42,11 @@ class Settings(BaseSettings):
     access_token_ttl_minutes: int = Field(default=15, ge=1, le=120)
     refresh_token_ttl_days: int = Field(default=14, ge=1, le=90)
     cookie_secure: bool = False
-    cors_allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    cors_allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3010,http://127.0.0.1:3010"
+    default_admin_email: str = "admin@dat.local"
+    default_admin_username: str = "admin"
+    default_admin_password: str = "dat123456"
+    default_admin_display_name: str = "Admin"
 
     # Service-to-service
     s2s_signing_secret: str = "CHANGE_ME_LOCAL_S2S_SECRET_AT_LEAST_32_CHARS"

@@ -1,5 +1,6 @@
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from urllib.parse import urlparse
 from uuid import uuid4
 
 from fastapi import FastAPI, Request, Response, status
@@ -19,12 +20,37 @@ from app.core.exceptions import (
 )
 from app.core.logging import configure_logging, request_id_ctx
 from app.db.engine import AsyncSessionLocal, engine
+from app.modules.auth.services.admin_seed_service import ensure_default_admin
+
+_SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+_CSRF_EXEMPT_PATHS = {
+    "/api/v1/auth/login",
+    "/api/v1/auth/register",
+    "/api/v1/auth/bootstrap",
+    "/api/v1/auth/refresh",
+    "/api/v1/auth/logout",
+}
+
+
+def _extract_origin(request: Request) -> str | None:
+    origin = request.headers.get("Origin")
+    if origin:
+        return origin.rstrip("/")
+    referer = request.headers.get("Referer")
+    if referer:
+        parsed = urlparse(referer)
+        if parsed.scheme and parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}"
+    return None
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     configure_logging(settings.log_level)
+    if settings.app_env != "test":
+        async with AsyncSessionLocal() as session:
+            await ensure_default_admin(session)
     yield
     await engine.dispose()
 
@@ -46,15 +72,62 @@ def create_app() -> FastAPI:
     )
 
     @app.middleware("http")
-    async def attach_request_id(
+    async def security_and_csrf_middleware(
         request: Request,
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
+        # 1. Origin + CSRF protection for browser cookie-authenticated mutations
+        if request.method not in _SAFE_METHODS:
+            has_bearer = (
+                request.headers.get("Authorization", "").lower().startswith("bearer ")
+            )
+            if not has_bearer:
+                request_origin = _extract_origin(request)
+                allowed_origins = {o.rstrip("/") for o in settings.cors_origins_list}
+                host_header = request.headers.get("Host")
+                if host_header:
+                    allowed_origins.add(f"{request.url.scheme}://{host_header}")
+                if request_origin and request_origin not in allowed_origins:
+                    return JSONResponse(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        content={
+                            "error": {
+                                "code": "CSRF_ORIGIN_MISMATCH",
+                                "message": "Untrusted request origin.",
+                                "details": None,
+                            },
+                            "request_id": request_id_ctx.get(),
+                        },
+                    )
+
+                cookie_csrf = request.cookies.get("csrf_token")
+                header_csrf = request.headers.get("X-CSRF-Token")
+                if (
+                    cookie_csrf
+                    and request_origin
+                    and request.url.path not in _CSRF_EXEMPT_PATHS
+                    and header_csrf != cookie_csrf
+                ):
+                    return JSONResponse(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        content={
+                            "error": {
+                                "code": "CSRF_TOKEN_INVALID",
+                                "message": "Invalid or missing CSRF token.",
+                                "details": None,
+                            },
+                            "request_id": request_id_ctx.get(),
+                        },
+                    )
+
         req_id = request.headers.get("X-Request-ID") or f"req_{uuid4().hex[:16]}"
         token = request_id_ctx.set(req_id)
         try:
             response = await call_next(request)
             response.headers["X-Request-ID"] = req_id
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["X-Frame-Options"] = "DENY"
+            response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
             return response
         finally:
             request_id_ctx.reset(token)

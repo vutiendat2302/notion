@@ -17,8 +17,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Productivity OS",
+  title: "dat — Personal Productivity",
   description: "Personal Productivity & Time Management App",
+  icons: {
+    icon: [
+      { url: "/logo/logo_mark_light.png", media: "(prefers-color-scheme: light)" },
+      { url: "/logo/logo_mark_dark.png", media: "(prefers-color-scheme: dark)" },
+    ],
+    apple: "/logo/logo_mark_light.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

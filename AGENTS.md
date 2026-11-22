@@ -91,6 +91,7 @@ Nếu tài liệu tham chiếu chưa được chép vào repository, không gi�
 | OpenAPI, Backend↔AI↔OCR, types, errors | `.skill/contracts/skill.md` |
 | Automated tests, quality gates, regression | `.skill/qa/skill.md` |
 | Postman docs (`.md`, không dùng `curl`) & Proxy `.py` tests | `.agents/skills/test/SKILL.md` |
+| Điều phối Multi-AI / Multi-Agent (Antigravity Gemini & Codex) | `.agents/skills/multi-ai/SKILL.md` |
 | React Native, iPhone, SideStore (về sau) | `.skill/mobile/skill.md` |
 
 Một task có thể cần nhiều skill. Ví dụ: upload PDF → `be`, `storage`, `ocr`, `ai`, `contracts`, `qa`.
@@ -168,4 +169,21 @@ Rủi ro / quyết định cần duyệt:
 - ...
 ```
 
-> File `AGENTS.md` là bản tương thích Codex của `AGENT.md`. Bộ skill chuẩn nằm ở `.agents/skills/<tên>/SKILL.md` và được đồng bộ từ `.skill/<tên>/skill.md`. Không chỉnh hai bản thủ công lệch nhau.
+## 11. Điều phối Multi-AI (Model Preset: `Balanced` — Antigravity & Codex)
+
+Dự án hỗ trợ chuyển đổi linh hoạt giữa **Antigravity (Gemini)** và **OpenAI Codex** với cùng kiến trúc Multi-Agent 6 vai trò (chi tiết tại `.agents/skills/multi-ai/SKILL.md` và `docs/MULTI_AI_ORCHESTRATION.md`):
+
+| Vai trò | Phạm vi thư mục | Antigravity (Gemini) | OpenAI Codex (`.codex/`) |
+|---|---|---|---|
+| **`Main`** *(Orchestrator)* | Điều phối, phân rã plan, giữ kiến trúc & contracts | `Orchestrator (Neon)` / `Gemini 4 Neon (Medium)` | `gpt-6.2-sol` (`medium`) |
+| **`BE`** *(Backend / DB / Infra)* | `backend/`, `infra/`, `contracts/` | **Dynamic 3-tier** theo độ nặng nhẹ:<br>• *Light:* `Gemini 4 Hydrogen (Low/Medium)`<br>• *Medium:* `Gemini 4 Neon (Medium/High)`<br>• *Heavy:* `Gemini 4 Argon (High)` | **Dynamic 2-tier** theo độ nặng nhẹ:<br>• *Light/Medium (`be`):* `gpt-6-sol` (`medium`/`high`)<br>• *Heavy (`be_heavy`):* `gpt-6.2-sol` (`high`) |
+| **`FE`** *(Frontend / UI)* | `frontend/` (Next.js 16, Soft Blue) | `Gemini 4 Hydrogen (Medium/High)` | `gpt-6-sol` (`medium`) |
+| **`AI`** *(AI / RAG / OCR)* | `ai-service/`, `ocr-service/` | **Dynamic 3-tier** theo độ nặng nhẹ:<br>• *Light:* `Gemini 4 Hydrogen`<br>• *Medium:* `Gemini 4 Neon`<br>• *Heavy:* `Gemini 4 Argon (High)` | `gpt-6.2-sol` (`medium`/`high`) |
+| **`Test`** *(QA & Postman)* | `*/tests/`, `docs/postman/` | `Gemini 3.8 Flash (Medium)` | `gpt-6-luna` (`high`) |
+| **`Review`** *(Gatekeeper)* | Read-only diff audit (12 Invariants, Security, Test rules) | `Gemini 4 Hydrogen (High)` | `gpt-6-sol` (`high`) |
+
+**Quy tắc điều phối bắt buộc:**
+1. **Cô lập ranh giới file**: Không để 2 subagents cùng sửa một file trong lúc chạy song song (`BE` chỉ sửa `backend/infra/contracts`, `FE` chỉ sửa `frontend/`, `AI` chỉ sửa `ai-service/ocr-service`, `Test` chỉ sửa `*/tests/` & `docs/postman/`).
+2. **Luồng 4 bước chuẩn**: `Main` (chốt contract & chia task) → `BE` / `FE` / `AI` (triển khai) → `Test` (chạy pytest qua `TransactionalProxySession` không lưu dữ liệu vào DB thật + viết Postman `.md` tuyệt đối không dùng `curl`) → `Review` (read-only kiểm định trước khi bàn giao).
+
+> File `AGENTS.md` là bản tương thích Codex của `AGENT.md`. Bộ skill chuẩn nằm ở `.agents/skills/<tên>/SKILL.md`, custom agents cho Antigravity nằm ở `.agents/agents/<tên>.md`, và cấu hình Codex nằm ở `.codex/config.toml` cùng `.codex/agents/<tên>.toml`.

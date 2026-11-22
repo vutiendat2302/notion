@@ -5,11 +5,13 @@ from fastapi import APIRouter, Cookie, Response, status
 from app.api.dependencies import DBSession
 from app.core.config import get_settings
 from app.core.exceptions import UnauthorizedError
+from app.core.security import generate_csrf_token
 from app.modules.auth.schemas.requests.auth_requests import (
     BootstrapUserRequest,
     LoginRequest,
     LogoutRequest,
     RefreshRequest,
+    RegisterRequest,
 )
 from app.modules.auth.schemas.responses.auth_responses import LogoutResponse, TokenResponse
 from app.modules.auth.services.auth_service import AuthService
@@ -22,6 +24,7 @@ def _set_auth_cookies(
     response: Response,
     access_token: str,
     refresh_token: str,
+    csrf_token: str,
     ttl_seconds: int,
 ) -> None:
     settings = get_settings()
@@ -43,11 +46,21 @@ def _set_auth_cookies(
         max_age=settings.refresh_token_ttl_days * 86400,
         path="/api/v1/auth",
     )
+    response.set_cookie(
+        key="csrf_token",
+        value=csrf_token,
+        httponly=False,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        max_age=settings.refresh_token_ttl_days * 86400,
+        path="/",
+    )
 
 
 def _clear_auth_cookies(response: Response) -> None:
     response.delete_cookie(key="access_token", path="/")
     response.delete_cookie(key="refresh_token", path="/api/v1/auth")
+    response.delete_cookie(key="csrf_token", path="/")
 
 
 @router.post("/bootstrap", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
@@ -57,10 +70,30 @@ async def bootstrap_owner(
     session: DBSession,
 ) -> TokenResponse:
     user, access_token, refresh_token, ttl = await AuthService(session).bootstrap_owner(payload)
-    _set_auth_cookies(response, access_token, refresh_token, ttl)
+    csrf_token = generate_csrf_token()
+    _set_auth_cookies(response, access_token, refresh_token, csrf_token, ttl)
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
+        csrf_token=csrf_token,
+        expires_in=ttl,
+        user=UserResponse.model_validate(user),
+    )
+
+
+@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+async def register(
+    payload: RegisterRequest,
+    response: Response,
+    session: DBSession,
+) -> TokenResponse:
+    user, access_token, refresh_token, ttl = await AuthService(session).register(payload)
+    csrf_token = generate_csrf_token()
+    _set_auth_cookies(response, access_token, refresh_token, csrf_token, ttl)
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        csrf_token=csrf_token,
         expires_in=ttl,
         user=UserResponse.model_validate(user),
     )
@@ -73,10 +106,12 @@ async def login(
     session: DBSession,
 ) -> TokenResponse:
     user, access_token, refresh_token, ttl = await AuthService(session).login(payload)
-    _set_auth_cookies(response, access_token, refresh_token, ttl)
+    csrf_token = generate_csrf_token()
+    _set_auth_cookies(response, access_token, refresh_token, csrf_token, ttl)
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
+        csrf_token=csrf_token,
         expires_in=ttl,
         user=UserResponse.model_validate(user),
     )
@@ -94,10 +129,12 @@ async def refresh_session(
         raise UnauthorizedError("Refresh token is missing.", code="MISSING_REFRESH_TOKEN")
 
     user, access_token, new_refresh_token, ttl = await AuthService(session).refresh(raw_token)
-    _set_auth_cookies(response, access_token, new_refresh_token, ttl)
+    csrf_token = generate_csrf_token()
+    _set_auth_cookies(response, access_token, new_refresh_token, csrf_token, ttl)
     return TokenResponse(
         access_token=access_token,
         refresh_token=new_refresh_token,
+        csrf_token=csrf_token,
         expires_in=ttl,
         user=UserResponse.model_validate(user),
     )

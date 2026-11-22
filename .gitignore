@@ -30,6 +30,7 @@ dist/
 .Python
 
 .venv/
+.venv-local/
 venv/
 env/
 ENV/

@@ -12,6 +12,7 @@ from app.modules.tasks.api.occurrence_router import router as occurrence_router
 from app.modules.tasks.api.task_router import router as task_router
 from app.modules.taxonomy.api.category_router import router as category_router
 from app.modules.time_tracking.api.time_tracking_router import router as time_tracking_router
+from app.modules.users.api.admin_user_router import router as admin_user_router
 from app.modules.users.api.user_router import router as user_router
 
 api_v1_router = APIRouter(prefix="/api/v1")
@@ -30,6 +31,7 @@ async def system_info() -> dict[str, object]:
 
 api_v1_router.include_router(auth_router)
 api_v1_router.include_router(user_router)
+api_v1_router.include_router(admin_user_router)
 api_v1_router.include_router(category_router)
 api_v1_router.include_router(project_router)
 api_v1_router.include_router(task_router)

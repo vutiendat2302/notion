@@ -30,12 +30,31 @@ export interface UserSettings {
 
 export interface User {
   id: string;
-  email: string;
+  username: string | null;
+  email: string | null;
+  phone: string | null;
   display_name: string;
-  status: string;
+  role: "ADMIN" | "USER";
+  status: "ACTIVE" | "DISABLED" | "PENDING_DELETION";
   last_login_at: string | null;
   created_at: string;
   settings: UserSettings | null;
+}
+
+export interface UserListResponse {
+  items: User[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface UserSession {
+  id: string;
+  device_label: string | null;
+  issued_at: string;
+  last_used_at: string | null;
+  expires_at: string;
+  is_current: boolean;
 }
 
 export interface Category {
