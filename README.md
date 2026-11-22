@@ -111,4 +111,7 @@ make config
 | `make up-ai` | Bật đầy đủ cụm Dev + MinIO + Qdrant (`:6343`) + Ollama (`:11444`) + OCR + AI Service |
 | `make dev-down` / `make down` | Dừng và gỡ containers (giữ nguyên volumes dữ liệu) |
 | `make dev-logs SVC=backend` | Xem logs của container dev chỉ định |
+| `make prod-on` / `lumi-on` | Bật cụm Production + Cloudflare Tunnel ra domain `https://lumiplan.vtdat.com` |
+| `make prod-off` / `lumi-off` | Tắt cụm Production + Cloudflare Tunnel (giữ nguyên toàn bộ volumes) |
+| `make prod-status` / `lumi-status` | Kiểm tra trạng thái container Production & phản hồi từ domain |
 | `make check` | Chạy toàn bộ `ruff`, `pyright`, `pytest` (BE) và `lint`, `typecheck`, `test` (FE) |

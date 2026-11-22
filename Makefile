@@ -26,6 +26,7 @@ COMPOSE_DEV_ISOLATED := COMPOSE_PROJECT_NAME=$(DEV_PROJECT) \
 	fe-local fe-dev fe-lint fe-typecheck fe-test \
 	db-up db-provision db-check db-shell db-backup migrate ai-db-migrate migration \
 	dev-isolated dev-logs dev-ps dev-down \
+	prod-on prod-off prod-status prod-logs \
 	up dev up-storage up-qdrant up-ollama up-infra up-ai up-all down stop ps logs \
 	check
 
@@ -70,6 +71,9 @@ help:
 	@echo "     make up-ollama       : Chỉ bật Ollama (Port :11444)"
 	@echo "     make up-infra        : Chỉ bật hạ tầng MinIO + Qdrant + Ollama (không bật BE/FE)"
 	@echo "     make up-ai           : Bật đầy đủ cụm Dev + MinIO + Qdrant + Ollama + OCR + AI"
+	@echo "     make prod-on         : Bật cụm Production + Cloudflare Tunnel (lumi-on)"
+	@echo "     make prod-off        : Tắt cụm Production + Cloudflare Tunnel (lumi-off, giữ volume)"
+	@echo "     make prod-status     : Kiểm tra trạng thái Production & domain (lumi-status)"
 	@echo "     make env / config    : Tạo .env từ mẫu / kiểm tra cú pháp Docker Compose"
 	@echo "=========================================================================="
 
@@ -177,6 +181,19 @@ dev-logs:
 
 dev-down:
 	$(COMPOSE_DEV_ISOLATED) --profile full down
+
+# --- 5. Production Stack + Cloudflare Tunnel (https://lumiplan.vtdat.com) ---
+prod-on: env
+	./infra/scripts/lumiplan-ctl.sh on
+
+prod-off: env
+	./infra/scripts/lumiplan-ctl.sh off
+
+prod-status: env
+	./infra/scripts/lumiplan-ctl.sh status
+
+prod-logs: env
+	./infra/scripts/lumiplan-ctl.sh logs $(SVC)
 
 up: env
 	$(COMPOSE) up -d --build

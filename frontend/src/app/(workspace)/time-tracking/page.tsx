@@ -454,17 +454,16 @@ export default function CountdownPage() {
 
       {/* Active Session Name pinned cleanly high & centered */}
       {activeEntry && activeSessionLabel && (
-        <div className="pt-2 text-center">
-          <p className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl md:text-4xl">
+        <div className="px-3 pt-2 text-center">
+          <p className="text-xl font-semibold tracking-tight break-words text-foreground sm:text-2xl md:text-3xl">
             {activeSessionLabel}
           </p>
         </div>
       )}
 
-      {/* Center Hero Clock — Pure Zen Mode when running */}
-      <section className="flex flex-1 flex-col items-center justify-center text-center">
-        {/* Double-sized Hero Digits (x2) */}
-        <div className="font-mono text-[5.25rem] leading-none font-bold tracking-tight text-foreground tabular-nums sm:text-[9rem] md:text-[13rem] xl:text-[15.5rem]">
+      {/* Center Hero Clock — Pure Zen Mode when running, responsive to container width via cqw */}
+      <section className="@container flex w-full flex-1 flex-col items-center justify-center overflow-hidden px-2 text-center">
+        <div className="max-w-full font-mono text-[clamp(2.25rem,12.2cqw,14.5rem)] leading-none font-bold tracking-tight whitespace-nowrap text-foreground tabular-nums select-none">
           {formatHMS(displaySeconds)}
         </div>
 

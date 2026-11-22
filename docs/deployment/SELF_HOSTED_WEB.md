@@ -10,7 +10,19 @@ The repository-root `.env` is ignored by Git. Set `COMPOSE_PROJECT_NAME`, dedica
 
 The frontend serves `/api/v1/*` on the same HTTPS origin and forwards those requests internally to `backend:8000`. The browser does not need direct access to port 18000.
 
-## Start and inspect
+## Quick commands (`lumi-on` / `lumi-off` / `lumi-status` — mirrors `bot-on` / `bot-status`)
+
+Run from anywhere on the host (installed in `~/.local/bin/` and backed by [lumiplan-ctl.sh](../../infra/scripts/lumiplan-ctl.sh)):
+
+```bash
+lumi-on       # Build & start minio, backend, worker, frontend (:3100/:18000) + Cloudflare tunnel
+lumi-status   # Show container status and probe loopback + https://lumiplan.vtdat.com
+lumi-off      # Stop production containers & Cloudflare tunnel cleanly without removing volumes
+```
+
+Equivalent `Makefile` targets from the repo root: `make prod-on`, `make prod-status`, `make prod-off`, `make prod-logs SVC=cloudflare-tunnel`.
+
+## Start and inspect (manual Compose)
 
 Run from the repository root:
 
